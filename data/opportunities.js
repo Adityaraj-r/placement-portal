@@ -1,0 +1,86 @@
+export const opportunities = [
+  {
+    id: 1,
+    title: "SDE Intern",
+    company: "TechNova Solutions",
+    location: "Bangalore (Hybrid)",
+    salary: "₹6 - 10 LPA",
+    posted: "2 days ago",
+    tags: ["Java", "Spring Boot", "DSA"],
+    eligibility: "B.Tech / B.E (CS, IT) | 2024–2025 pass out",
+    description:
+      "Work on high-scale backend systems. Write clean and maintainable code using Java and Spring Boot.",
+  },
+  {
+    id: 2,
+    title: "Frontend Developer",
+    company: "Creative Pixel",
+    location: "Remote",
+    salary: "₹4 - 8 LPA",
+    posted: "1 day ago",
+    tags: ["React.js", "Tailwind", "Redux"],
+    eligibility: "Any graduate with strong React skills",
+    description:
+      "Translate UI/UX designs into responsive web applications using React and Tailwind CSS.",
+  },
+  {
+    id: 3,
+    title: "Data Analyst Trainee",
+    company: "FinCorp Analytics",
+    location: "Mumbai",
+    salary: "₹5 - 7 LPA",
+    posted: "Just now",
+    tags: ["Python", "SQL", "PowerBI"],
+    eligibility: "B.Sc / BCA / B.Tech | Basic SQL knowledge",
+    description:
+      "Analyze datasets and create dashboards using PowerBI and Tableau.",
+  },
+  {
+    id: 4,
+    title: "Full Stack Engineer",
+    company: "StartupX",
+    location: "Remote",
+    salary: "₹7 - 12 LPA",
+    posted: "3 days ago",
+    tags: ["Next.js", "Node.js", "MongoDB"],
+    eligibility: "B.Tech / MCA | 1+ year experience",
+    description:
+      "Build scalable web applications using modern JavaScript frameworks.",
+  },
+  {
+    id: 5,
+    title: "DevOps Associate",
+    company: "CloudScale Inc.",
+    location: "Hyderabad",
+    salary: "₹6 - 9 LPA",
+    posted: "5 days ago",
+    tags: ["AWS", "Docker", "CI/CD"],
+    eligibility: "B.Tech / BCA | Cloud fundamentals required",
+    description:
+      "Manage cloud infrastructure and automate deployment pipelines.",
+  },
+  {
+    id: 6,
+    title: "QA Engineer",
+    company: "SecureNet",
+    location: "Pune",
+    salary: "₹5 - 8 LPA",
+    posted: "1 week ago",
+    tags: ["Selenium", "Jest", "Automation"],
+    eligibility: "Any graduate | Manual + Automation testing",
+    description:
+      "Ensure product quality through automated and manual testing.",
+  },
+  {
+    id: 7,
+    title: "UI/UX Designer",
+    company: "DesignHub",
+    location: "Remote",
+    salary: "₹4 - 6 LPA",
+    posted: "3 days ago",
+    tags: ["Figma", "Wireframing", "Prototyping"],
+    eligibility: "Any graduate | Portfolio required",
+    description:
+      "Design intuitive user experiences and modern interfaces.",
+  },
+];
