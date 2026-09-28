@@ -42,7 +42,7 @@ export default function AdminLayout({ children }) {
                 Coding Savvy
               </h1>
               <p className="text-xs text-slate-500 hidden sm:block">
-                Administration Dashboard
+                Staff Dashboard
               </p>
             </div>
           </div>

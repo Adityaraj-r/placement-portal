@@ -41,6 +41,7 @@ export async function proxy(req) {
 
   // Define route groups
   const isProtectedAdminRoute = path.startsWith("/admin");
+  const staffRoles = ["admin", "tpo", "coordinator"];
   const isProtectedStudentRoute =
     path.startsWith("/profile") ||
     path.startsWith("/opportunities") ||
@@ -80,19 +81,18 @@ export async function proxy(req) {
     if (!supportedRoles.includes(role)) return forbiddenWithCookies();
 
     if (isAuthRoute) {
-      if (role === "admin") return redirectWithCookies("/admin/dashboard");
+      if (staffRoles.includes(role)) return redirectWithCookies("/admin/dashboard");
       if (role === "student") return redirectWithCookies("/opportunities");
-      // There are no TPO or coordinator landing routes in this repository.
       return supabaseResponse;
     }
 
-    if (isProtectedAdminRoute && role !== "admin") {
+    if (isProtectedAdminRoute && !staffRoles.includes(role)) {
       if (role === "student") return redirectWithCookies("/opportunities");
       return forbiddenWithCookies();
     }
 
     if (isProtectedStudentRoute && role !== "student") {
-      if (role === "admin") return redirectWithCookies("/admin/dashboard");
+      if (staffRoles.includes(role)) return redirectWithCookies("/admin/dashboard");
       return forbiddenWithCookies();
     }
   }

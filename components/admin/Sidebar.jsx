@@ -10,9 +10,31 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/supabaseClient";
+import { useEffect, useState } from "react";
 
 export default function Sidebar({ open, setOpen }) {
   const pathname = usePathname();
+  const [role, setRole] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    async function loadRole() {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (active && ["admin", "tpo", "coordinator"].includes(profile?.role)) {
+        setRole(profile.role);
+      }
+    }
+    loadRole();
+    return () => { active = false; };
+  }, []);
 
   const isActive = (href) => pathname === href || pathname.startsWith(href + "/");
 
@@ -55,7 +77,9 @@ export default function Sidebar({ open, setOpen }) {
             <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center">
               <span className="text-white font-bold text-sm">CS</span>
             </div>
-            <h2 className="text-lg font-bold text-gray-900">Admin Panel</h2>
+            <h2 className="text-lg font-bold text-gray-900">
+              {role ? `${role.toUpperCase()} Panel` : "Staff Panel"}
+            </h2>
           </div>
           <Button
             size="icon"

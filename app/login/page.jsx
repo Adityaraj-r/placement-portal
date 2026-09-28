@@ -105,16 +105,8 @@ export default function LoginPage() {
       const userRole = profile?.role || "student";
 
       // Role-based routing
-      if (userRole === "admin") {
+      if (["admin", "tpo", "coordinator"].includes(userRole)) {
         router.push("/admin/dashboard");
-        return { success: true };
-      } else if (userRole === "tpo") {
-        // Note: Dedicated /tpo dashboard route will be created in later phases
-        router.push("/opportunities");
-        return { success: true };
-      } else if (userRole === "coordinator") {
-        // Note: Dedicated /coordinator dashboard route will be created in later phases
-        router.push("/opportunities");
         return { success: true };
       } else {
         router.push("/opportunities");
