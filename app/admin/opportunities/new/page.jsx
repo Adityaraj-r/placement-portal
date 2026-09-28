@@ -7,14 +7,22 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { createOpportunity } from "@/app/actions/opportunities.actions";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 export default function NewOpportunity() {
+  const router = useRouter();
   const [opportunity, setOpportunity] = useState({
     company_name: "",
     role: "",
-    required_skills: "",
+    job_location: "",
+    package_lpa: "",
+    min_cgpa: "",
+    allowed_departments: "",
+    max_backlogs: "0",
     deadline: "",
     description: "",
+    status: "draft",
   });
 
   const handleChange = (field, value) => {
@@ -23,9 +31,16 @@ export default function NewOpportunity() {
 
   async function handleCreate(){
     try {
-      await createOpportunity(opportunity)
+      const result = await createOpportunity(opportunity);
+      if (result.success) {
+        toast.success("Placement drive created.");
+        router.push("/admin/opportunities");
+      } else {
+        toast.error(result.error || "Could not create the placement drive.");
+      }
     } catch (error) {
       console.log(error)
+      toast.error("Could not create the placement drive.");
     }
   };
 
@@ -57,24 +72,50 @@ export default function NewOpportunity() {
           </div>
 
           <div className="space-y-1">
-            <Label htmlFor="required_skills">Required Skills</Label>
-            <Input
-              id="required_skills"
-              value={opportunity.required_skills}
-              onChange={(e) =>
-                handleChange("required_skills", e.target.value)
-              }
-            />
+            <Label htmlFor="job_location">Job Location</Label>
+            <Input id="job_location" value={opportunity.job_location} onChange={(e) => handleChange("job_location", e.target.value)} />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <Label htmlFor="package_lpa">Package (LPA)</Label>
+              <Input id="package_lpa" type="number" min="0" step="0.01" value={opportunity.package_lpa} onChange={(e) => handleChange("package_lpa", e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="min_cgpa">Minimum CGPA</Label>
+              <Input id="min_cgpa" type="number" min="0" max="10" step="0.01" value={opportunity.min_cgpa} onChange={(e) => handleChange("min_cgpa", e.target.value)} />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="allowed_departments">Allowed Departments (comma separated)</Label>
+            <Input id="allowed_departments" value={opportunity.allowed_departments} onChange={(e) => handleChange("allowed_departments", e.target.value)} placeholder="Computer Science, Electrical" />
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="max_backlogs">Maximum Backlogs</Label>
+            <Input id="max_backlogs" type="number" min="0" step="1" value={opportunity.max_backlogs} onChange={(e) => handleChange("max_backlogs", e.target.value)} />
           </div>
 
           <div className="space-y-1">
             <Label htmlFor="deadline">Deadline</Label>
             <Input
               id="deadline"
-              type="date"
+              type="datetime-local"
               value={opportunity.deadline}
               onChange={(e) => handleChange("deadline", e.target.value)}
             />
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="status">Drive Status</Label>
+            <select id="status" value={opportunity.status} onChange={(e) => handleChange("status", e.target.value)} className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm">
+              <option value="draft">Draft</option>
+              <option value="published">Published</option>
+              <option value="in_progress">In progress</option>
+              <option value="completed">Completed</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
           </div>
 
           <div className="space-y-1">

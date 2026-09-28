@@ -12,12 +12,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { ExternalLink, FileText } from "lucide-react";
-import { useEffect, useState, useMemo } from "react";
-import { getApplicantsByOpportunity } from "@/app/actions/applications.actions";
+import { useEffect, useState } from "react";
+import { getApplicantsByDrive } from "@/app/actions/applications.actions";
 import { getOpportunityById } from "@/app/actions/opportunities.actions";
 import { useParams } from "next/navigation";
-import { createClient } from "@/lib/supabase/supabaseClient";
 
 export default function ApplicantsPage() {
   const { id } = useParams();
@@ -27,7 +25,7 @@ export default function ApplicantsPage() {
 
   useEffect(() => {
     async function getData() {
-      const appsRes = await getApplicantsByOpportunity(id);
+      const appsRes = await getApplicantsByDrive(id);
       if (appsRes?.success) {
         setApplicants(appsRes.data ?? []);
       }
@@ -65,7 +63,7 @@ export default function ApplicantsPage() {
                   <div className="mt-1.5">
                     <Badge
                       variant={
-                        opportunity.status === "open"
+                        opportunity.status === "published"
                           ? "default"
                           : "secondary"
                       }
@@ -117,44 +115,12 @@ export default function ApplicantsPage() {
                 <TableHead className="font-semibold">Branch</TableHead>
                 <TableHead className="font-semibold">Skills</TableHead>
                 <TableHead className="font-semibold">Status</TableHead>
-                <TableHead className="text-right font-semibold">Actions</TableHead>
+                <TableHead className="font-semibold">Current Round</TableHead>
               </TableRow>
             </TableHeader>
 
           <TableBody>
             {applicants.map((app) => {
-              const ResumeViewButton = ({ resumeUrl }) => {
-                const publicUrl = useMemo(() => {
-                  if (!resumeUrl) return null;
-                  try {
-                    const supabase = createClient();
-                    const { data } = supabase.storage
-                      .from("resumes")
-                      .getPublicUrl(resumeUrl);
-                    return data?.publicUrl || null;
-                  } catch (error) {
-                    console.error("Error getting resume URL:", error);
-                    return null;
-                  }
-                }, [resumeUrl]);
-
-                if (!publicUrl) return null;
-
-                return (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      window.open(publicUrl, "_blank", "noopener,noreferrer")
-                    }
-                    className="gap-1.5"
-                  >
-                    <FileText size={14} />
-                    View Resume
-                  </Button>
-                );
-              };
-
               return (
                 <TableRow key={app.id}>
                   <TableCell className="font-medium">
@@ -189,11 +155,7 @@ export default function ApplicantsPage() {
                       {app.status}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-right">
-                    <ResumeViewButton
-                      resumeUrl={app.profiles?.resume_url}
-                    />
-                  </TableCell>
+                  <TableCell>{app.current_round || "-"}</TableCell>
                 </TableRow>
               );
             })}

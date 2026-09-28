@@ -63,7 +63,7 @@ export default function OpportunitiesPage() {
                   </div>
                   <Badge
                     variant={
-                      opp?.status === "active"
+                      opp?.status === "published"
                         ? "default"
                         : "secondary"
                     }
@@ -84,10 +84,14 @@ export default function OpportunitiesPage() {
                 <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-100">
                   <div>
                     <Label className="text-xs font-medium text-slate-500 uppercase tracking-wide">
-                      Required Skills
+                      Eligibility
                     </Label>
                     <p className="text-sm text-gray-700 mt-1 line-clamp-1">
-                      {opp?.required_skills || "Not specified"}
+                      {Array.isArray(opp?.allowed_departments) && opp.allowed_departments.length
+                        ? opp.allowed_departments.join(", ")
+                        : "Departments not specified"}
+                      {opp?.min_cgpa != null ? ` · CGPA ${opp.min_cgpa}+` : ""}
+                      {` · Max backlogs ${opp?.max_backlogs ?? 0}`}
                     </p>
                   </div>
                   <div>

@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/supabaseClient";
-import { getProfileByUserId } from "@/app/actions/profile.actions";
 import { getMyApplications } from "@/app/actions/applications.actions";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -37,15 +36,7 @@ export default function MyApplicationsPage() {
         return;
       }
 
-      // NOTE: applications.student_id in this project refers to the student's profile id,
-      // so we resolve user.id -> profile.id before calling getMyApplications.
-      const profileRes = await getProfileByUserId(user.id);
-      if (!profileRes.success || !profileRes.data?.id) {
-        router.replace("/profile/edit");
-        return;
-      }
-
-      const appsRes = await getMyApplications(profileRes.data.id);
+      const appsRes = await getMyApplications();
       setApplications(appsRes?.data ?? []);
       setLoading(false);
     }
@@ -116,7 +107,8 @@ export default function MyApplicationsPage() {
           ) : hasApps ? (
             <div className="grid grid-cols-1 gap-4">
               {applications.map((app) => {
-                const opp = app.opportunities;
+                const drive = app.placement_drives;
+                const company = drive?.companies;
                 return (
                   <Card
                     key={app.id}
@@ -133,12 +125,12 @@ export default function MyApplicationsPage() {
                                 className="text-blue-600 shrink-0"
                               />
                               <h3 className="text-lg font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
-                                {opp?.role || "Unknown Role"}
+                                {drive?.title || "Unknown Role"}
                               </h3>
                             </div>
                             <div className="flex items-center gap-2 text-sm text-blue-600 font-medium">
                               <Building2 size={14} />
-                              <span>{opp?.company_name || "Unknown Company"}</span>
+                              <span>{company?.name || "Unknown Company"}</span>
                             </div>
                           </div>
                           <Badge
@@ -156,31 +148,42 @@ export default function MyApplicationsPage() {
                         </div>
 
                         {/* Opportunity Details */}
-                        {opp && (
+                        {drive && (
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-slate-100">
-                            {opp.description && (
+                            {drive.job_description && (
                               <div className="sm:col-span-2">
                                 <Label className="text-xs font-medium text-slate-500 uppercase tracking-wide">
                                   Description
                                 </Label>
                                 <p className="text-sm text-gray-700 mt-1.5 line-clamp-2">
-                                  {opp.description}
+                                  {drive.job_description}
                                 </p>
                               </div>
                             )}
 
-                            {opp.required_skills && (
+                            {drive.job_location && (
                               <div>
                                 <Label className="text-xs font-medium text-slate-500 uppercase tracking-wide">
-                                  Required Skills
+                                  Location
                                 </Label>
                                 <p className="text-sm text-gray-700 mt-1.5">
-                                  {opp.required_skills}
+                                  {drive.job_location}
                                 </p>
                               </div>
                             )}
 
-                            {opp.deadline && (
+                            {drive.package_lpa != null && (
+                              <div>
+                                <Label className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+                                  Package
+                                </Label>
+                                <p className="text-sm text-gray-700 mt-1.5">
+                                  {drive.package_lpa} LPA
+                                </p>
+                              </div>
+                            )}
+
+                            {drive.registration_deadline && (
                               <div>
                                 <Label className="text-xs font-medium text-slate-500 uppercase tracking-wide">
                                   Deadline
@@ -188,7 +191,7 @@ export default function MyApplicationsPage() {
                                 <div className="flex items-center gap-1.5 mt-1.5">
                                   <Calendar size={14} className="text-slate-400" />
                                   <p className="text-sm text-gray-700">
-                                    {new Date(opp.deadline).toLocaleDateString(
+                                    {new Date(drive.registration_deadline).toLocaleDateString(
                                       "en-US",
                                       {
                                         month: "short",
@@ -209,9 +212,9 @@ export default function MyApplicationsPage() {
                             <FileText size={12} />
                             <span>Applied on {formatDate(app.applied_at)}</span>
                           </div>
-                          {opp?.status && (
+                          {drive?.status && (
                             <Badge variant="outline" className="text-xs">
-                              {opp.status}
+                              {drive.status}
                             </Badge>
                           )}
                         </div>

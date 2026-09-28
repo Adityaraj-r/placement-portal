@@ -5,8 +5,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Building2, GraduationCap, Calendar, Briefcase } from "lucide-react";
 import { applyToOpportunity } from "@/app/actions/applications.actions";
-import { createClient } from "@/lib/supabase/supabaseClient";
-import { getProfileByUserId } from "@/app/actions/profile.actions";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -16,25 +14,11 @@ export default function OpportunityCard({ opportunity }) {
   async function handleApply(id) {
     setApplying(true);
     try {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-
-      if (!user) {
-        toast.error("Please log in to apply");
-        return;
-      }
-      
-      const { success, data, error } = await getProfileByUserId(user.id);
-
-      if (success && data) {
-        const result = await applyToOpportunity(data.id, id);
-        if (result?.success) {
-          toast.success("Application submitted successfully!");
-        } else {
-          toast.error(result?.error || "Failed to submit application");
-        }
+      const result = await applyToOpportunity(id);
+      if (result?.success) {
+        toast.success("Application submitted successfully!");
       } else {
-        toast.error("Please complete your profile first");
+        toast.error(result?.error || "Failed to submit application");
       }
     } catch (err) {
       toast.error("An error occurred. Please try again.");
@@ -79,7 +63,7 @@ export default function OpportunityCard({ opportunity }) {
             </div>
             {opportunity.status && (
               <Badge
-                variant={opportunity.status === "active" ? "default" : "secondary"}
+                variant={opportunity.status === "published" ? "default" : "secondary"}
                 className="shrink-0"
               >
                 {opportunity.status}
@@ -99,20 +83,34 @@ export default function OpportunityCard({ opportunity }) {
 
         {/* Details */}
         <div className="space-y-2.5 pt-2 border-t border-slate-100">
-          {opportunity.required_skills && (
+          {opportunity.location && (
             <div className="flex items-start gap-2 text-sm">
               <GraduationCap
                 size={16}
                 className="text-slate-400 mt-0.5 shrink-0"
               />
               <div className="flex-1 min-w-0">
-                <span className="font-medium text-gray-900">Required: </span>
-                <span className="text-gray-700 line-clamp-2">
-                  {opportunity.required_skills}
-                </span>
+                <span className="font-medium text-gray-900">Location: </span>
+                <span className="text-gray-700">{opportunity.location}</span>
               </div>
             </div>
           )}
+
+          {opportunity.package_lpa != null && (
+            <p className="text-sm text-gray-700">
+              <span className="font-medium text-gray-900">Package: </span>
+              {opportunity.package_lpa} LPA
+            </p>
+          )}
+
+          <p className="text-sm text-gray-700">
+            <span className="font-medium text-gray-900">Eligibility: </span>
+            {Array.isArray(opportunity.allowed_departments) && opportunity.allowed_departments.length
+              ? opportunity.allowed_departments.join(", ")
+              : "Departments not specified"}
+            {opportunity.min_cgpa != null ? ` · CGPA ${opportunity.min_cgpa}+` : ""}
+            {` · Max backlogs ${opportunity.max_backlogs ?? 0}`}
+          </p>
 
           {opportunity.deadline && (
             <div className="flex items-center gap-2 text-sm">

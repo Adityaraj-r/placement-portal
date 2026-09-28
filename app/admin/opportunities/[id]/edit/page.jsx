@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { useEffect, useState } from "react";
 import { getOpportunityById, updateOpportunity } from "@/app/actions/opportunities.actions";
+import { toast } from "sonner";
 
 export default function EditOpportunityPage() {
   const { id } = useParams();
@@ -27,21 +28,22 @@ export default function EditOpportunityPage() {
   };
 
   const handleUpdate = async () => {
-    const updated = {
+    const result = await updateOpportunity(id, {
       ...opportunity,
       deadline: new Date(opportunity.deadline).toISOString(),
-    };
-    setOpportunity(updated);
-    await updateOpportunity(id, updated);
+    });
+    if (result.success) setOpportunity(result.data);
+    else toast.error(result.error || "Could not update the placement drive.");
   };
 
   const handleClose = async () => {
-    const updated = {
+    const result = await updateOpportunity(id, {
       ...opportunity,
-      status: "closed",
-    };
-    setOpportunity(updated);
-    await updateOpportunity(id, updated);
+      deadline: new Date(opportunity.deadline).toISOString(),
+      status: "cancelled",
+    });
+    if (result.success) setOpportunity(result.data);
+    else toast.error(result.error || "Could not close the placement drive.");
   };
 
   if (!opportunity) return null;
@@ -72,28 +74,54 @@ export default function EditOpportunityPage() {
           </div>
 
           <div className="space-y-1">
-            <Label htmlFor="required_skills">Required Skills</Label>
-            <Input
-              id="required_skills"
-              value={opportunity.required_skills || ""}
-              onChange={(e) =>
-                handleFieldChange("required_skills", e.target.value)
-              }
-            />
+            <Label htmlFor="job_location">Job Location</Label>
+            <Input id="job_location" value={opportunity.job_location || ""} onChange={(e) => handleFieldChange("job_location", e.target.value)} />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <Label htmlFor="package_lpa">Package (LPA)</Label>
+              <Input id="package_lpa" type="number" min="0" step="0.01" value={opportunity.package_lpa ?? ""} onChange={(e) => handleFieldChange("package_lpa", e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="min_cgpa">Minimum CGPA</Label>
+              <Input id="min_cgpa" type="number" min="0" max="10" step="0.01" value={opportunity.min_cgpa ?? ""} onChange={(e) => handleFieldChange("min_cgpa", e.target.value)} />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="allowed_departments">Allowed Departments (comma separated)</Label>
+            <Input id="allowed_departments" value={Array.isArray(opportunity.allowed_departments) ? opportunity.allowed_departments.join(", ") : ""} onChange={(e) => handleFieldChange("allowed_departments", e.target.value)} />
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="max_backlogs">Maximum Backlogs</Label>
+            <Input id="max_backlogs" type="number" min="0" step="1" value={opportunity.max_backlogs ?? 0} onChange={(e) => handleFieldChange("max_backlogs", e.target.value)} />
           </div>
 
           <div className="space-y-1">
             <Label htmlFor="deadline">Deadline</Label>
             <Input
               id="deadline"
-              type="date"
+              type="datetime-local"
               value={
                 opportunity.deadline
-                  ? new Date(opportunity.deadline).toISOString().slice(0, 10)
+                  ? new Date(opportunity.deadline).toISOString().slice(0, 16)
                   : ""
               }
               onChange={(e) => handleFieldChange("deadline", e.target.value)}
             />
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="status">Drive Status</Label>
+            <select id="status" value={opportunity.status || "draft"} onChange={(e) => handleFieldChange("status", e.target.value)} className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm">
+              <option value="draft">Draft</option>
+              <option value="published">Published</option>
+              <option value="in_progress">In progress</option>
+              <option value="completed">Completed</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
           </div>
 
           <div className="space-y-1">
