@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Briefcase,
+  Building2,
   X,
   GraduationCap,
 } from "lucide-react";
@@ -48,6 +49,11 @@ export default function Sidebar({ open, setOpen }) {
       href: "/admin/opportunities",
       icon: Briefcase,
       label: "Opportunities",
+    },
+    {
+      href: "/admin/companies",
+      icon: Building2,
+      label: "Companies",
     },
     {
       href: "/admin/students",

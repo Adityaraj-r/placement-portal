@@ -58,6 +58,7 @@ function parseOptionalNumber(value) {
 
 function buildDriveValues(input = {}) {
   const title = String(input.title ?? input.role ?? "").trim();
+  const companyId = typeof input.company_id === "string" ? input.company_id.trim() : "";
   const registrationDeadline = input.registration_deadline ?? input.deadline;
   const deadlineDate = registrationDeadline ? new Date(registrationDeadline) : null;
   const packageLpa = parseOptionalNumber(input.package_lpa);
@@ -65,8 +66,11 @@ function buildDriveValues(input = {}) {
   const maxBacklogs = Number(input.max_backlogs ?? 0);
   const status = String(input.status || "draft").toLowerCase();
 
-  if (!title || !String(input.company_name ?? "").trim()) {
-    return { error: "Company and opportunity title are required" };
+  if (!title) {
+    return { error: "Opportunity title is required" };
+  }
+  if (!companyId) {
+    return { error: "Select a company" };
   }
   if (!deadlineDate || Number.isNaN(deadlineDate.getTime())) {
     return { error: "Enter a valid registration deadline" };
@@ -86,6 +90,7 @@ function buildDriveValues(input = {}) {
 
   return {
     values: {
+      company_id: companyId,
       title,
       job_description: String(input.job_description ?? input.description ?? "").trim() || null,
       job_location: String(input.job_location ?? "").trim() || null,
@@ -99,26 +104,18 @@ function buildDriveValues(input = {}) {
   };
 }
 
-async function findOrCreateCompany(supabase, name) {
-  const companyName = String(name || "").trim();
-  if (!companyName) return { error: "Company name is required" };
-
-  const { data: existing, error: lookupError } = await supabase
+async function verifyCompany(supabase, companyId) {
+  if (typeof companyId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(companyId)) {
+    return { error: "Select a valid company" };
+  }
+  const { data: company, error } = await supabase
     .from("companies")
     .select("id")
-    .eq("name", companyName)
+    .eq("id", companyId)
     .maybeSingle();
-  if (lookupError) return { error: "Could not look up the company" };
-  if (existing) return { companyId: existing.id };
-
-  const now = new Date().toISOString();
-  const { data: company, error: insertError } = await supabase
-    .from("companies")
-    .insert({ name: companyName, created_at: now, updated_at: now })
-    .select("id")
-    .single();
-  if (insertError || !company) return { error: "Could not save the company" };
-  return { companyId: company.id };
+  if (error) return { error: "Could not verify the selected company" };
+  if (!company) return { error: "Selected company was not found" };
+  return {};
 }
 
 function toOpportunityView(drive) {
@@ -143,10 +140,7 @@ export async function createOpportunity(opportunityData) {
     const { values, error: validationError } = buildDriveValues(opportunityData);
     if (validationError) return { success: false, error: validationError };
 
-    const { companyId, error: companyError } = await findOrCreateCompany(
-      supabase,
-      opportunityData.company_name,
-    );
+    const { error: companyError } = await verifyCompany(supabase, values.company_id);
     if (companyError) return { success: false, error: companyError };
 
     const now = new Date().toISOString();
@@ -154,7 +148,6 @@ export async function createOpportunity(opportunityData) {
       .from("placement_drives")
       .insert({
         ...values,
-        company_id: companyId,
         created_by: profile.id,
         created_at: now,
         updated_at: now,
@@ -180,32 +173,16 @@ export async function updateOpportunity(id, opportunityData) {
     const { values, error: validationError } = buildDriveValues(opportunityData);
     if (validationError) return { success: false, error: validationError };
 
+    const { error: companyError } = await verifyCompany(supabase, values.company_id);
+    if (companyError) return { success: false, error: companyError };
+
     const { data: currentDrive, error: driveError } = await supabase
       .from("placement_drives")
-      .select("id, company_id")
+      .select("id")
       .eq("id", id)
       .maybeSingle();
     if (driveError || !currentDrive) {
       return { success: false, error: "Placement drive not found or unavailable" };
-    }
-
-    const companyName = String(opportunityData.company_name).trim();
-    const { data: currentCompany, error: currentCompanyError } = await supabase
-      .from("companies")
-      .select("name")
-      .eq("id", currentDrive.company_id)
-      .maybeSingle();
-    if (currentCompanyError || !currentCompany) {
-      return { success: false, error: "Could not load the company" };
-    }
-    if (currentCompany.name !== companyName) {
-      const { data: company, error: companyError } = await supabase
-        .from("companies")
-        .update({ name: companyName, updated_at: new Date().toISOString() })
-        .eq("id", currentDrive.company_id)
-        .select("id")
-        .maybeSingle();
-      if (companyError || !company) return { success: false, error: "Could not update the company" };
     }
 
     const { data: drive, error } = await supabase

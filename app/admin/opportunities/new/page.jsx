@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -9,11 +10,20 @@ import { Label } from "@/components/ui/label";
 import { createOpportunity } from "@/app/actions/opportunities.actions";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { getCompanies } from "@/app/actions/company.actions";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function NewOpportunity() {
   const router = useRouter();
+  const [companies, setCompanies] = useState([]);
   const [opportunity, setOpportunity] = useState({
-    company_name: "",
+    company_id: "",
     role: "",
     job_location: "",
     package_lpa: "",
@@ -24,6 +34,15 @@ export default function NewOpportunity() {
     description: "",
     status: "draft",
   });
+
+  useEffect(() => {
+    async function loadCompanies() {
+      const result = await getCompanies();
+      if (result?.success) setCompanies(result.data ?? []);
+      else toast.error(result?.error || "Could not load companies");
+    }
+    loadCompanies();
+  }, []);
 
   const handleChange = (field, value) => {
     setOpportunity((prev) => ({ ...prev, [field]: value }));
@@ -54,12 +73,22 @@ export default function NewOpportunity() {
         <CardContent className="p-6 space-y-4">
 
           <div className="space-y-1">
-            <Label htmlFor="company_name">Company Name</Label>
-            <Input
-              id="company_name"
-              value={opportunity.company_name}
-              onChange={(e) => handleChange("company_name", e.target.value)}
-            />
+            <Label htmlFor="company_id">Company</Label>
+            <Select value={opportunity.company_id} onValueChange={(value) => handleChange("company_id", value)}>
+              <SelectTrigger id="company_id" className="w-full">
+                <SelectValue placeholder="Select a company" />
+              </SelectTrigger>
+              <SelectContent>
+                {companies.map((company) => (
+                  <SelectItem key={company.id} value={company.id}>{company.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {companies.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                No companies yet. <Link className="text-blue-600 underline" href="/admin/companies">Add a company</Link> first.
+              </p>
+            )}
           </div>
 
           <div className="space-y-1">
@@ -132,6 +161,7 @@ export default function NewOpportunity() {
           <Button
             className="bg-blue-600 text-white w-full"
             onClick={handleCreate}
+            disabled={companies.length === 0}
           >
             Create Opportunity
           </Button>

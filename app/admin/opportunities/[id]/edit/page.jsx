@@ -9,16 +9,32 @@ import { Label } from "@/components/ui/label";
 import { useEffect, useState } from "react";
 import { getOpportunityById, updateOpportunity } from "@/app/actions/opportunities.actions";
 import { toast } from "sonner";
+import Link from "next/link";
+import { getCompanies } from "@/app/actions/company.actions";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function EditOpportunityPage() {
   const { id } = useParams();
 
   const [opportunity, setOpportunity] = useState(null);
+  const [companies, setCompanies] = useState([]);
 
   useEffect(() => {
     async function getData() {
-      const temp = await getOpportunityById(id);
-      setOpportunity(temp?.data || {});
+      const [driveResult, companiesResult] = await Promise.all([
+        getOpportunityById(id),
+        getCompanies(),
+      ]);
+      if (driveResult?.data) setOpportunity(driveResult.data);
+      else toast.error(driveResult?.error || "Could not load placement drive");
+      if (companiesResult?.success) setCompanies(companiesResult.data ?? []);
+      else toast.error(companiesResult?.error || "Could not load companies");
     }
     if (id) getData();
   }, [id]);
@@ -56,12 +72,22 @@ export default function EditOpportunityPage() {
         <CardContent className="p-6 space-y-4">
 
           <div className="space-y-1">
-            <Label htmlFor="company_name">Company Name</Label>
-            <Input
-              id="company_name"
-              value={opportunity.company_name || ""}
-              onChange={(e) => handleFieldChange("company_name", e.target.value)}
-            />
+            <Label htmlFor="company_id">Company</Label>
+            <Select value={opportunity.company_id || ""} onValueChange={(value) => handleFieldChange("company_id", value)}>
+              <SelectTrigger id="company_id" className="w-full">
+                <SelectValue placeholder="Select a company" />
+              </SelectTrigger>
+              <SelectContent>
+                {companies.map((company) => (
+                  <SelectItem key={company.id} value={company.id}>{company.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {companies.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                No companies available. <Link className="text-blue-600 underline" href="/admin/companies">Add a company</Link> first.
+              </p>
+            )}
           </div>
 
           <div className="space-y-1">
@@ -136,7 +162,7 @@ export default function EditOpportunityPage() {
           </div>
 
           <div className="flex gap-3 pt-4">
-            <Button className="bg-blue-600" onClick={handleUpdate}>
+            <Button className="bg-blue-600" onClick={handleUpdate} disabled={companies.length === 0}>
               Update Opportunity
             </Button>
             <Button variant="destructive" onClick={handleClose}>
