@@ -3,6 +3,14 @@
 import { createClient } from "@/lib/supabase/supabaseServer";
 
 const STAFF_ROLES = ["admin", "tpo", "coordinator"];
+const APPLICATION_STATUSES = [
+  "applied",
+  "eligible",
+  "ineligible",
+  "shortlisted",
+  "rejected",
+  "selected",
+];
 
 async function getCurrentStudent(supabase) {
   const {
@@ -267,8 +275,11 @@ export async function getApplicantsByDrive(driveId) {
 }
 
 export async function updateApplicationStatus(applicationId, statusValue) {
-  if (!applicationId || typeof statusValue !== "string" || !statusValue.trim()) {
-    return { success: false, error: "Application and status are required" };
+  if (!applicationId) {
+    return { success: false, error: "Application is required" };
+  }
+  if (typeof statusValue !== "string" || !APPLICATION_STATUSES.includes(statusValue)) {
+    return { success: false, error: "Choose a valid application status" };
   }
 
   try {
@@ -276,9 +287,17 @@ export async function updateApplicationStatus(applicationId, statusValue) {
     const { error: authError } = await verifyStaff(supabase);
     if (authError) return { success: false, error: authError };
 
+    const { data: existingApplication, error: lookupError } = await supabase
+      .from("applications")
+      .select("id")
+      .eq("id", applicationId)
+      .maybeSingle();
+    if (lookupError) return { success: false, error: "Could not verify the application" };
+    if (!existingApplication) return { success: false, error: "Application not found" };
+
     const { data, error } = await supabase
       .from("applications")
-      .update({ status: statusValue.trim(), updated_at: new Date().toISOString() })
+      .update({ status: statusValue, updated_at: new Date().toISOString() })
       .eq("id", applicationId)
       .select()
       .maybeSingle();

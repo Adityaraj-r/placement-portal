@@ -18,13 +18,58 @@ import { getApplicantResumeSignedUrl } from "@/app/actions/resume.actions";
 import { getOpportunityById } from "@/app/actions/opportunities.actions";
 import { useParams } from "next/navigation";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { updateApplicationStatus } from "@/app/actions/applications.actions";
+
+const APPLICATION_STATUSES = [
+  "applied",
+  "eligible",
+  "ineligible",
+  "shortlisted",
+  "rejected",
+  "selected",
+];
 
 export default function ApplicantsPage() {
   const { id } = useParams();
+  const router = useRouter();
 
   const [applicants, setApplicants] = useState([]);
   const [opportunity, setOpportunity] = useState(null);
   const [openingResumeId, setOpeningResumeId] = useState(null);
+  const [updatingApplicationId, setUpdatingApplicationId] = useState(null);
+
+  async function handleStatusChange(applicationId, status) {
+    setUpdatingApplicationId(applicationId);
+    try {
+      const result = await updateApplicationStatus(applicationId, status);
+      if (!result?.success) {
+        toast.error(result?.error || "Could not update application status");
+        return;
+      }
+
+      setApplicants((current) => current.map((app) =>
+        app.id === applicationId ? { ...app, status: result.data.status } : app,
+      ));
+      toast.success("Application status updated.");
+      const refreshedApplicants = await getApplicantsByDrive(id);
+      if (refreshedApplicants?.success) {
+        setApplicants(refreshedApplicants.data ?? []);
+      }
+      router.refresh();
+    } catch {
+      toast.error("Could not update application status");
+    } finally {
+      setUpdatingApplicationId(null);
+    }
+  }
 
   async function handleViewResume(studentProfileId) {
     setOpeningResumeId(studentProfileId);
@@ -163,17 +208,22 @@ export default function ApplicantsPage() {
                       : "-"}
                   </TableCell>
                   <TableCell>
-                    <Badge
-                      variant={
-                        app.status === "shortlisted"
-                          ? "default"
-                          : app.status === "rejected"
-                          ? "destructive"
-                          : "secondary"
-                      }
+                    <Select
+                      value={app.status || "applied"}
+                      onValueChange={(status) => handleStatusChange(app.id, status)}
+                      disabled={updatingApplicationId === app.id}
                     >
-                      {app.status}
-                    </Badge>
+                      <SelectTrigger className="w-36" aria-label={`Application status for ${app.profiles?.name || "applicant"}`}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {APPLICATION_STATUSES.map((status) => (
+                          <SelectItem key={status} value={status}>
+                            {status.charAt(0).toUpperCase() + status.slice(1)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </TableCell>
                   <TableCell>{app.current_round || "-"}</TableCell>
                   <TableCell>
