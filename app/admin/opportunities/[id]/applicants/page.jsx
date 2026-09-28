@@ -12,13 +12,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { useEffect, useState } from "react";
-import { getApplicantsByDrive } from "@/app/actions/applications.actions";
+import { useEffect, useMemo, useState } from "react";
+import { getApplicantsByDrive, updateApplicationStatus } from "@/app/actions/applications.actions";
 import { getApplicantResumeSignedUrl } from "@/app/actions/resume.actions";
 import { getOpportunityById } from "@/app/actions/opportunities.actions";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -26,7 +26,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { updateApplicationStatus } from "@/app/actions/applications.actions";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const APPLICATION_STATUSES = [
   "applied",
@@ -45,6 +51,28 @@ export default function ApplicantsPage() {
   const [opportunity, setOpportunity] = useState(null);
   const [openingResumeId, setOpeningResumeId] = useState(null);
   const [updatingApplicationId, setUpdatingApplicationId] = useState(null);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [selectedApplicant, setSelectedApplicant] = useState(null);
+  const [loadingApplicants, setLoadingApplicants] = useState(true);
+
+  const filteredApplicants = useMemo(() => {
+    const query = search.trim().toLocaleLowerCase();
+    return applicants.filter((app) => {
+      const matchesStatus = statusFilter === "all" || app.status === statusFilter;
+      if (!matchesStatus) return false;
+      if (!query) return true;
+      const searchableValues = [
+        app.profiles?.name,
+        app.profiles?.email,
+        app.student_profiles?.college_id,
+        app.student_id,
+      ];
+      return searchableValues.some((value) =>
+        String(value ?? "").toLocaleLowerCase().includes(query),
+      );
+    });
+  }, [applicants, search, statusFilter]);
 
   async function handleStatusChange(applicationId, status) {
     setUpdatingApplicationId(applicationId);
@@ -89,19 +117,72 @@ export default function ApplicantsPage() {
 
   useEffect(() => {
     async function getData() {
-      const appsRes = await getApplicantsByDrive(id);
-      if (appsRes?.success) {
-        setApplicants(appsRes.data ?? []);
-      }
-
-      const oppRes = await getOpportunityById(id);
-      if (oppRes?.data) {
-        setOpportunity(oppRes.data);
+      setLoadingApplicants(true);
+      try {
+        const [appsRes, oppRes] = await Promise.all([
+          getApplicantsByDrive(id),
+          getOpportunityById(id),
+        ]);
+        if (appsRes?.success) setApplicants(appsRes.data ?? []);
+        else toast.error(appsRes?.error || "Could not load applicants");
+        if (oppRes?.data) setOpportunity(oppRes.data);
+        else if (oppRes?.error) toast.error(oppRes.error);
+      } catch {
+        toast.error("Could not load applicant information");
+      } finally {
+        setLoadingApplicants(false);
       }
     }
 
     if (id) getData();
   }, [id]);
+
+  function downloadFilteredApplicants() {
+    const headers = [
+      "Name",
+      "Email",
+      "College ID",
+      "Department",
+      "Degree",
+      "Graduation Year",
+      "CGPA",
+      "Backlogs",
+      "Application Status",
+      "Current Round",
+      "Applied Date",
+    ];
+    const escapeCsv = (value) => {
+      const text = String(value ?? "");
+      const spreadsheetSafeText = /^[\t\r ]*[=+\-@]/.test(text) ? `'${text}` : text;
+      return `"${spreadsheetSafeText.replace(/"/g, '""')}"`;
+    };
+    const rows = filteredApplicants.map((app) => [
+      app.profiles?.name,
+      app.profiles?.email,
+      app.student_profiles?.college_id,
+      app.student_profiles?.department,
+      app.student_profiles?.degree,
+      app.student_profiles?.graduation_year,
+      app.student_profiles?.cgpa,
+      app.student_profiles?.backlogs,
+      app.status,
+      app.current_round,
+      app.applied_at,
+    ]);
+    const csv = [headers, ...rows].map((row) => row.map(escapeCsv).join(",")).join("\r\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const safeDriveId = String(id || "drive").replace(/[^a-z0-9-]/gi, "-");
+    link.href = url;
+    link.download = `applicants-${safeDriveId}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+
+  const formatDate = (value) => value ? new Date(value).toLocaleDateString() : "-";
 
   return (
     <div className="mx-auto max-w-7xl space-y-8">
@@ -169,6 +250,29 @@ export default function ApplicantsPage() {
           </p>
         </div>
 
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <Input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search name, email, college ID, or student ID"
+            aria-label="Search applicants"
+            className="sm:max-w-md"
+          />
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-full sm:w-48" aria-label="Filter applicants by status">
+              <SelectValue placeholder="All statuses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              {APPLICATION_STATUSES.map((status) => (
+                <SelectItem key={status} value={status}>
+                  {status.charAt(0).toUpperCase() + status.slice(1)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
         <div className="border border-slate-200/80 rounded-xl overflow-hidden bg-white">
           <Table>
             <TableHeader>
@@ -180,12 +284,13 @@ export default function ApplicantsPage() {
                 <TableHead className="font-semibold">Skills</TableHead>
                 <TableHead className="font-semibold">Status</TableHead>
                 <TableHead className="font-semibold">Current Round</TableHead>
+                <TableHead className="font-semibold">Details</TableHead>
                 <TableHead className="font-semibold">Resume</TableHead>
               </TableRow>
             </TableHeader>
 
           <TableBody>
-            {applicants.map((app) => {
+            {filteredApplicants.map((app) => {
               return (
                 <TableRow key={app.id}>
                   <TableCell className="font-medium">
@@ -227,6 +332,11 @@ export default function ApplicantsPage() {
                   </TableCell>
                   <TableCell>{app.current_round || "-"}</TableCell>
                   <TableCell>
+                    <Button variant="outline" size="sm" onClick={() => setSelectedApplicant(app)}>
+                      Details
+                    </Button>
+                  </TableCell>
+                  <TableCell>
                     <Button
                       variant="outline"
                       size="sm"
@@ -239,16 +349,68 @@ export default function ApplicantsPage() {
                 </TableRow>
               );
             })}
+            {!loadingApplicants && filteredApplicants.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={9} className="py-8 text-center text-sm text-muted-foreground">
+                  {applicants.length === 0
+                    ? "No applicants have applied to this placement drive yet."
+                    : search.trim() && statusFilter !== "all"
+                    ? "No applicants match this search and status."
+                    : search.trim()
+                    ? "No applicants match your search."
+                    : "No applicants match the selected status."}
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
         </div>
 
         <div className="flex justify-end">
-          <Button variant="outline" className="font-medium">
+          <Button variant="outline" className="font-medium" onClick={downloadFilteredApplicants} disabled={filteredApplicants.length === 0}>
             Download CSV
           </Button>
         </div>
       </div>
+
+      <Dialog open={Boolean(selectedApplicant)} onOpenChange={(open) => { if (!open) setSelectedApplicant(null); }}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
+          {selectedApplicant && (
+            <>
+              <DialogHeader>
+                <DialogTitle>{selectedApplicant.profiles?.name || "Applicant details"}</DialogTitle>
+                <DialogDescription>{selectedApplicant.profiles?.email || "Applicant information"}</DialogDescription>
+              </DialogHeader>
+              <dl className="grid grid-cols-1 gap-x-6 gap-y-4 text-sm sm:grid-cols-2">
+                {[
+                  ["College ID", selectedApplicant.student_profiles?.college_id],
+                  ["Department", selectedApplicant.student_profiles?.department],
+                  ["Degree", selectedApplicant.student_profiles?.degree],
+                  ["Graduation year", selectedApplicant.student_profiles?.graduation_year],
+                  ["CGPA", selectedApplicant.student_profiles?.cgpa],
+                  ["Backlogs", selectedApplicant.student_profiles?.backlogs],
+                  ["Application status", selectedApplicant.status],
+                  ["Current round", selectedApplicant.current_round],
+                  ["Applied date", formatDate(selectedApplicant.applied_at)],
+                ].map(([label, value]) => (
+                  <div key={label}>
+                    <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</dt>
+                    <dd className="mt-1 text-gray-900">{value ?? "-"}</dd>
+                  </div>
+                ))}
+                <div className="sm:col-span-2">
+                  <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">Skills</dt>
+                  <dd className="mt-1 text-gray-900">
+                    {Array.isArray(selectedApplicant.student_profiles?.skills)
+                      ? selectedApplicant.student_profiles.skills.join(", ") || "-"
+                      : selectedApplicant.student_profiles?.skills || "-"}
+                  </dd>
+                </div>
+              </dl>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
