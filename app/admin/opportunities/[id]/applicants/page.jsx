@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useEffect, useMemo, useState } from "react";
 import { getApplicantsByDrive, updateApplicationStatus } from "@/app/actions/applications.actions";
+import { createPlacement } from "@/app/actions/placement.actions";
 import { getApplicantResumeSignedUrl } from "@/app/actions/resume.actions";
 import { getOpportunityById } from "@/app/actions/opportunities.actions";
 import { useParams, useRouter } from "next/navigation";
@@ -30,6 +31,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -54,6 +56,14 @@ export default function ApplicantsPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedApplicant, setSelectedApplicant] = useState(null);
+  const [placementApplicant, setPlacementApplicant] = useState(null);
+  const [placementForm, setPlacementForm] = useState({
+    package_lpa: "",
+    offer_status: "offered",
+    placement_date: "",
+    joining_date: "",
+  });
+  const [creatingPlacement, setCreatingPlacement] = useState(false);
   const [loadingApplicants, setLoadingApplicants] = useState(true);
 
   const filteredApplicants = useMemo(() => {
@@ -112,6 +122,45 @@ export default function ApplicantsPage() {
       toast.error("Could not open this applicant's resume");
     } finally {
       setOpeningResumeId(null);
+    }
+  }
+
+  function openPlacementDialog(applicant) {
+    setPlacementForm({
+      package_lpa: opportunity?.package_lpa ?? "",
+      offer_status: "offered",
+      placement_date: "",
+      joining_date: "",
+    });
+    setPlacementApplicant(applicant);
+  }
+
+  function closePlacementDialog() {
+    if (creatingPlacement) return;
+    setPlacementApplicant(null);
+    setPlacementForm({ package_lpa: "", offer_status: "offered", placement_date: "", joining_date: "" });
+  }
+
+  async function handleCreatePlacement(event) {
+    event.preventDefault();
+    if (!placementApplicant) return;
+    setCreatingPlacement(true);
+    try {
+      const result = await createPlacement(placementApplicant.id, placementForm);
+      if (!result?.success) {
+        toast.error(result?.error || "Could not create placement");
+        return;
+      }
+      toast.success("Placement created.");
+      setPlacementApplicant(null);
+      setPlacementForm({ package_lpa: "", offer_status: "offered", placement_date: "", joining_date: "" });
+      const refreshedApplicants = await getApplicantsByDrive(id);
+      if (refreshedApplicants?.success) setApplicants(refreshedApplicants.data ?? []);
+      router.refresh();
+    } catch {
+      toast.error("Could not create placement");
+    } finally {
+      setCreatingPlacement(false);
     }
   }
 
@@ -285,6 +334,7 @@ export default function ApplicantsPage() {
                 <TableHead className="font-semibold">Status</TableHead>
                 <TableHead className="font-semibold">Current Round</TableHead>
                 <TableHead className="font-semibold">Details</TableHead>
+                <TableHead className="font-semibold">Placement</TableHead>
                 <TableHead className="font-semibold">Resume</TableHead>
               </TableRow>
             </TableHeader>
@@ -337,6 +387,13 @@ export default function ApplicantsPage() {
                     </Button>
                   </TableCell>
                   <TableCell>
+                    {app.status === "selected" && (
+                      <Button variant="outline" size="sm" onClick={() => openPlacementDialog(app)}>
+                        Create Placement
+                      </Button>
+                    )}
+                  </TableCell>
+                  <TableCell>
                     <Button
                       variant="outline"
                       size="sm"
@@ -351,7 +408,7 @@ export default function ApplicantsPage() {
             })}
             {!loadingApplicants && filteredApplicants.length === 0 && (
               <TableRow>
-                <TableCell colSpan={9} className="py-8 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={10} className="py-8 text-center text-sm text-muted-foreground">
                   {applicants.length === 0
                     ? "No applicants have applied to this placement drive yet."
                     : search.trim() && statusFilter !== "all"
@@ -408,6 +465,91 @@ export default function ApplicantsPage() {
                 </div>
               </dl>
             </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(placementApplicant)} onOpenChange={(open) => { if (!open) closePlacementDialog(); }}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
+          {placementApplicant && (
+            <form className="space-y-5" onSubmit={handleCreatePlacement}>
+              <DialogHeader>
+                <DialogTitle>Create Placement</DialogTitle>
+                <DialogDescription>
+                  Record an offer for this selected applicant. The application will remain selected.
+                </DialogDescription>
+              </DialogHeader>
+
+              <dl className="grid grid-cols-1 gap-x-6 gap-y-3 rounded-lg bg-slate-50 p-4 text-sm sm:grid-cols-2">
+                {[
+                  ["Student", placementApplicant.profiles?.name],
+                  ["Email", placementApplicant.profiles?.email],
+                  ["Job title", opportunity?.role],
+                  ["Company", opportunity?.company_name],
+                  ["Application status", placementApplicant.status],
+                ].map(([label, value]) => (
+                  <div key={label}>
+                    <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</dt>
+                    <dd className="mt-1 text-gray-900">{value || "-"}</dd>
+                  </div>
+                ))}
+              </dl>
+
+              <div className="space-y-1">
+                <Label htmlFor="placement-package">Package (LPA)</Label>
+                <Input
+                  id="placement-package"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={placementForm.package_lpa}
+                  onChange={(event) => setPlacementForm((current) => ({ ...current, package_lpa: event.target.value }))}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="placement-offer-status">Offer Status</Label>
+                <Select
+                  value={placementForm.offer_status}
+                  onValueChange={(value) => setPlacementForm((current) => ({ ...current, offer_status: value }))}
+                >
+                  <SelectTrigger id="placement-offer-status" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="offered">Offered</SelectItem>
+                    <SelectItem value="accepted">Accepted</SelectItem>
+                    <SelectItem value="rejected">Rejected</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <Label htmlFor="placement-date">Placement Date</Label>
+                  <Input
+                    id="placement-date"
+                    type="date"
+                    value={placementForm.placement_date}
+                    onChange={(event) => setPlacementForm((current) => ({ ...current, placement_date: event.target.value }))}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="joining-date">Joining Date</Label>
+                  <Input
+                    id="joining-date"
+                    type="date"
+                    value={placementForm.joining_date}
+                    onChange={(event) => setPlacementForm((current) => ({ ...current, joining_date: event.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={closePlacementDialog} disabled={creatingPlacement}>Cancel</Button>
+                <Button type="submit" disabled={creatingPlacement}>{creatingPlacement ? "Creating…" : "Create Placement"}</Button>
+              </DialogFooter>
+            </form>
           )}
         </DialogContent>
       </Dialog>
