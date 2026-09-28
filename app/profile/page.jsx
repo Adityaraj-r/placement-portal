@@ -1,6 +1,7 @@
 "use client";
 
 import ProfileCard from "@/components/profile/ProfileCard";
+import ResumeCard from "@/components/profile/ResumeCard";
 import SkillsList from "@/components/profile/SkillsList";
 import { useEffect, useState } from "react";
 import { getProfileByUserId } from "../actions/profile.actions";
@@ -84,6 +85,7 @@ export default function ProfilePage() {
           <ProfileCard profile={profile} />
           <div className="space-y-6 md:col-span-2">
             <SkillsList skills={skills} />
+            <ResumeCard resumePath={profile?.resume_path} />
             <Link href="./profile/resume-feedback">
               <Button className="bg-blue-600 hover:bg-blue-700">
                 Get Resume Feedback

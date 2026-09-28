@@ -14,14 +14,33 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useEffect, useState } from "react";
 import { getApplicantsByDrive } from "@/app/actions/applications.actions";
+import { getApplicantResumeSignedUrl } from "@/app/actions/resume.actions";
 import { getOpportunityById } from "@/app/actions/opportunities.actions";
 import { useParams } from "next/navigation";
+import { toast } from "sonner";
 
 export default function ApplicantsPage() {
   const { id } = useParams();
 
   const [applicants, setApplicants] = useState([]);
   const [opportunity, setOpportunity] = useState(null);
+  const [openingResumeId, setOpeningResumeId] = useState(null);
+
+  async function handleViewResume(studentProfileId) {
+    setOpeningResumeId(studentProfileId);
+    try {
+      const result = await getApplicantResumeSignedUrl(id, studentProfileId);
+      if (!result?.success || !result.url) {
+        toast.error(result?.error || "Could not open this applicant's resume");
+        return;
+      }
+      window.location.assign(result.url);
+    } catch {
+      toast.error("Could not open this applicant's resume");
+    } finally {
+      setOpeningResumeId(null);
+    }
+  }
 
   useEffect(() => {
     async function getData() {
@@ -116,6 +135,7 @@ export default function ApplicantsPage() {
                 <TableHead className="font-semibold">Skills</TableHead>
                 <TableHead className="font-semibold">Status</TableHead>
                 <TableHead className="font-semibold">Current Round</TableHead>
+                <TableHead className="font-semibold">Resume</TableHead>
               </TableRow>
             </TableHeader>
 
@@ -156,6 +176,16 @@ export default function ApplicantsPage() {
                     </Badge>
                   </TableCell>
                   <TableCell>{app.current_round || "-"}</TableCell>
+                  <TableCell>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!app.student_id || openingResumeId === app.student_id}
+                      onClick={() => handleViewResume(app.student_id)}
+                    >
+                      {openingResumeId === app.student_id ? "Opening..." : "View Resume"}
+                    </Button>
+                  </TableCell>
                 </TableRow>
               );
             })}
