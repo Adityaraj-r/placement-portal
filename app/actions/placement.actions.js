@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/supabaseServer";
 
 const STAFF_ROLES = ["admin", "tpo", "coordinator"];
 const OFFER_STATUSES = ["offered", "accepted", "rejected"];
+const PLACEMENT_FIELDS = "id, application_id, student_id, drive_id, company_id, job_title, package_lpa, offer_status, placement_date, joining_date, created_at";
 
 async function verifyStaff(supabase) {
   const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -18,6 +19,10 @@ async function verifyStaff(supabase) {
   if (error || !profile) return { error: "Could not verify your account" };
   if (!STAFF_ROLES.includes(profile.role)) return { error: "Not authorized" };
   return {};
+}
+
+function isValidId(value) {
+  return typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 }
 
 function parseOptionalPackage(value) {
@@ -46,6 +51,131 @@ function parseOptionalDate(value, label) {
 
 function firstRelation(relation) {
   return Array.isArray(relation) ? relation[0] : relation;
+}
+
+export async function getPlacements() {
+  try {
+    const supabase = await createClient();
+    const { error: authError } = await verifyStaff(supabase);
+    if (authError) return { success: false, error: authError };
+
+    const { data: placements, error } = await supabase
+      .from("placements")
+      .select(`
+        ${PLACEMENT_FIELDS},
+        student_profiles ( id, user_id, college_id, department, degree, graduation_year, cgpa, backlogs, skills ),
+        companies ( id, name, website, industry, location ),
+        placement_drives ( id, title, job_location, registration_deadline )
+      `)
+      .order("created_at", { ascending: false });
+    if (error) return { success: false, error: "Could not load placements" };
+    if (!placements?.length) return { success: true, data: [] };
+
+    const userIds = [...new Set(placements
+      .map((placement) => firstRelation(placement.student_profiles)?.user_id)
+      .filter(Boolean))];
+    const profileByUserId = new Map();
+    if (userIds.length) {
+      const { data: profiles, error: profilesError } = await supabase
+        .from("profiles")
+        .select("user_id, full_name, email")
+        .in("user_id", userIds);
+      if (profilesError) return { success: false, error: "Could not load placement student details" };
+      for (const profile of profiles || []) profileByUserId.set(profile.user_id, profile);
+    }
+
+    const data = placements.map((placement) => {
+      const studentProfile = firstRelation(placement.student_profiles);
+      const company = firstRelation(placement.companies);
+      const drive = firstRelation(placement.placement_drives);
+      const profile = profileByUserId.get(studentProfile?.user_id);
+      return {
+        ...placement,
+        student: studentProfile ? {
+          full_name: profile?.full_name ?? null,
+          email: profile?.email ?? null,
+          college_id: studentProfile.college_id,
+          department: studentProfile.department,
+          degree: studentProfile.degree,
+          graduation_year: studentProfile.graduation_year,
+          cgpa: studentProfile.cgpa,
+          backlogs: studentProfile.backlogs,
+          skills: studentProfile.skills,
+        } : null,
+        company: company ? {
+          name: company.name,
+          website: company.website,
+          industry: company.industry,
+          location: company.location,
+        } : null,
+        drive: drive ? {
+          title: drive.title,
+          job_location: drive.job_location,
+          registration_deadline: drive.registration_deadline,
+        } : null,
+      };
+    });
+    return { success: true, data };
+  } catch {
+    return { success: false, error: "Could not load placements" };
+  }
+}
+
+export async function updatePlacement(placementId, placementData = {}) {
+  try {
+    const supabase = await createClient();
+    const { error: authError } = await verifyStaff(supabase);
+    if (authError) return { success: false, error: authError };
+    if (!isValidId(placementId)) return { success: false, error: "Placement ID is invalid" };
+    if (!placementData || typeof placementData !== "object" || Array.isArray(placementData)) {
+      return { success: false, error: "Placement details are invalid" };
+    }
+
+    const { data: existing, error: lookupError } = await supabase
+      .from("placements")
+      .select(PLACEMENT_FIELDS)
+      .eq("id", placementId)
+      .maybeSingle();
+    if (lookupError) return { success: false, error: "Could not verify the placement" };
+    if (!existing) return { success: false, error: "Placement not found" };
+
+    const updates = {};
+    if (Object.hasOwn(placementData, "package_lpa")) {
+      const result = parseOptionalPackage(placementData.package_lpa);
+      if (result.error) return { success: false, error: result.error };
+      updates.package_lpa = result.value;
+    }
+    if (Object.hasOwn(placementData, "offer_status")) {
+      if (typeof placementData.offer_status !== "string" || !OFFER_STATUSES.includes(placementData.offer_status)) {
+        return { success: false, error: "Choose a valid offer status" };
+      }
+      updates.offer_status = placementData.offer_status;
+    }
+    if (Object.hasOwn(placementData, "placement_date")) {
+      const result = parseOptionalDate(placementData.placement_date, "Placement date");
+      if (result.error) return { success: false, error: result.error };
+      updates.placement_date = result.value;
+    }
+    if (Object.hasOwn(placementData, "joining_date")) {
+      const result = parseOptionalDate(placementData.joining_date, "Joining date");
+      if (result.error) return { success: false, error: result.error };
+      updates.joining_date = result.value;
+    }
+    if (!Object.keys(updates).length) return { success: false, error: "No placement changes provided" };
+
+    const { data: placement, error: updateError } = await supabase
+      .from("placements")
+      .update(updates)
+      .eq("id", existing.id)
+      .select(PLACEMENT_FIELDS)
+      .maybeSingle();
+    if (updateError) return { success: false, error: "Could not update placement" };
+    if (!placement) return { success: false, error: "Placement not found or not accessible" };
+    revalidatePath("/admin/placements");
+    return { success: true, data: placement };
+  } catch {
+    return { success: false, error: "Could not update placement" };
+  }
 }
 
 export async function createPlacement(applicationId, placementData = {}) {
