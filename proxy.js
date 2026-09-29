@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { routeDecision } from "@/lib/auth/rules.mjs";
 
 export async function proxy(req) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -64,15 +65,6 @@ export async function proxy(req) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Define route groups
-  const isProtectedAdminRoute = path.startsWith("/admin");
-  const staffRoles = ["admin", "tpo", "coordinator"];
-  const isProtectedStudentRoute =
-    path.startsWith("/profile") ||
-    path.startsWith("/opportunities") ||
-    path.startsWith("/applications");
-  const isAuthRoute = path.startsWith("/login") || path.startsWith("/signup");
-
   const redirectWithCookies = (url) => {
     const redirectResponse = NextResponse.redirect(new URL(url, req.url));
     for (const cookie of supabaseResponse.cookies.getAll()) {
@@ -89,12 +81,10 @@ export async function proxy(req) {
     return forbiddenResponse;
   };
 
-  if (isProtectedAdminRoute || isProtectedStudentRoute || isAuthRoute) {
-    if (!user) {
-      if (!isAuthRoute) return redirectWithCookies("/login");
-      return supabaseResponse;
-    }
-
+  const decision = routeDecision(path, null, Boolean(user));
+  if (decision === "allow") return supabaseResponse;
+  if (decision === "login") return redirectWithCookies("/login");
+  if (user) {
     const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("role")
@@ -102,24 +92,11 @@ export async function proxy(req) {
         .maybeSingle();
 
     const role = profileError ? null : profile?.role;
-    const supportedRoles = ["admin", "tpo", "coordinator", "student"];
-    if (!supportedRoles.includes(role)) return forbiddenWithCookies();
-
-    if (isAuthRoute) {
-      if (staffRoles.includes(role)) return redirectWithCookies("/admin/dashboard");
-      if (role === "student") return redirectWithCookies("/opportunities");
-      return supabaseResponse;
-    }
-
-    if (isProtectedAdminRoute && !staffRoles.includes(role)) {
-      if (role === "student") return redirectWithCookies("/opportunities");
-      return forbiddenWithCookies();
-    }
-
-    if (isProtectedStudentRoute && role !== "student") {
-      if (staffRoles.includes(role)) return redirectWithCookies("/admin/dashboard");
-      return forbiddenWithCookies();
-    }
+    const decision = routeDecision(path, role, true);
+    if (decision === "forbidden") return forbiddenWithCookies();
+    if (decision === "student-home") return redirectWithCookies("/opportunities");
+    if (decision === "staff-home") return redirectWithCookies("/admin/dashboard");
+    if (decision === "/admin/dashboard" || decision === "/opportunities") return redirectWithCookies(decision);
   }
 
   return supabaseResponse;

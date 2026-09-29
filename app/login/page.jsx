@@ -19,6 +19,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { roleLandingPath } from "@/lib/auth/rules.mjs";
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -121,19 +122,17 @@ export default function LoginPage() {
         .maybeSingle();
 
       if (profileError) {
-        return { success: false, message: "Error fetching user profile." };
+        await supabase.auth.signOut();
+        return { success: false, message: "We couldn't verify your account role. Please contact support." };
       }
 
-      const userRole = profile?.role || "student";
-
-      // Role-based routing
-      if (["admin", "tpo", "coordinator"].includes(userRole)) {
-        router.push("/admin/dashboard");
-        return { success: true };
-      } else {
-        router.push("/opportunities");
-        return { success: true };
+      const landingPath = roleLandingPath(profile?.role);
+      if (!landingPath) {
+        await supabase.auth.signOut();
+        return { success: false, message: "We couldn't verify your account role. Please contact support." };
       }
+      router.replace(landingPath);
+      return { success: true };
     } catch {
       return { success: false, message: "A network error prevented login. Please try again." };
     }
@@ -222,9 +221,9 @@ export default function LoginPage() {
                 <Checkbox id="remember" />
                 <Label htmlFor="remember">Remember me</Label>
               </div>
-              <button type="button" className="text-blue-600 hover:underline">
+              <Link href="/forgot-password" className="text-blue-600 hover:underline">
                 Forgot password?
-              </button>
+              </Link>
             </div>
 
             {/* SUBMIT */}

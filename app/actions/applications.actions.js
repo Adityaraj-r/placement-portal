@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/supabaseServer";
+import { authorizationFailure, checkRegistrationDeadline, isDuplicateApplication, ownsApplication } from "@/lib/auth/rules.mjs";
 
 const STAFF_ROLES = ["admin", "tpo", "coordinator"];
 const APPLICATION_STATUSES = [
@@ -91,15 +92,17 @@ async function verifyStaff(supabase) {
     data: { user },
     error: authError,
   } = await supabase.auth.getUser();
-  if (authError || !user) return { error: "Please log in to continue" };
-
+  if (authorizationFailure(user, null, STAFF_ROLES, authError) === "unauthenticated") {
+    return { error: "Please log in to continue" };
+  }
   const { data: profile, error } = await supabase
     .from("profiles")
     .select("role")
     .eq("user_id", user.id)
     .maybeSingle();
-  if (error || !profile) return { error: "Could not verify your account" };
-  if (!STAFF_ROLES.includes(profile.role)) return { error: "Not authorized" };
+  const authorization = authorizationFailure(user, profile, STAFF_ROLES, null, error);
+  if (authorization === "unverified") return { error: "Could not verify your account" };
+  if (authorization === "forbidden") return { error: "Not authorized" };
   return { user, profile };
 }
 
@@ -129,13 +132,8 @@ export async function applyToOpportunity(driveId) {
       return { success: false, error: "Applications are not open for this placement drive" };
     }
 
-    const deadline = new Date(drive.registration_deadline);
-    if (!drive.registration_deadline || Number.isNaN(deadline.getTime())) {
-      return { success: false, error: "This placement drive has no valid registration deadline" };
-    }
-    if (new Date() > deadline) {
-      return { success: false, error: "The registration deadline for this drive has passed." };
-    }
+    const deadlineError = checkRegistrationDeadline(drive.registration_deadline);
+    if (deadlineError) return { success: false, error: deadlineError };
 
     const eligibilityError = checkDriveEligibility(studentProfile, drive);
     if (eligibilityError) return { success: false, error: eligibilityError };
@@ -149,7 +147,7 @@ export async function applyToOpportunity(driveId) {
     if (duplicateCheckError) {
       return { success: false, error: "Could not verify your application status" };
     }
-    if (existingApplication) {
+    if (isDuplicateApplication(existingApplication)) {
       return { success: false, error: "You have already applied to this placement drive" };
     }
 
@@ -216,7 +214,10 @@ export async function getMyApplications() {
       .order("applied_at", { ascending: false });
 
     if (error) return { success: false, error: "Could not load your applications" };
-    return { success: true, data: data || [] };
+    return {
+      success: true,
+      data: (data || []).filter((application) => ownsApplication(studentProfile.id, application)),
+    };
   } catch {
     return { success: false, error: "Could not load your applications" };
   }

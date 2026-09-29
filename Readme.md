@@ -45,3 +45,8 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+# Automated security rules
+
+Run the credential-free safety tests with `npm test`. They cover protected-route and role decisions, password recovery input, Server Action authorization rules, profile and application ownership, application deadlines and duplicates, the application update privilege migration, and resume validation. The suite uses fixed fixtures and does not read `.env.local` or contact Supabase.
+
+Live authentication, Server Action, database RLS/column-grant, profile provisioning, and Supabase Storage cross-account tests require a disposable Supabase project. Configure its URL and public key in an isolated test environment, seed dedicated test accounts (student A/B, coordinator, TPO, admin), and use test-only drives/applications/resume objects. Do not point destructive integration checks at production. Those live integration checks have not been implemented or run because no isolated test project is identified in this repository.

@@ -94,13 +94,10 @@ export default function SignupPage() {
       });
 
       if (error) {
-        if (error.code === "user_already_exists") {
-          return { success: false, message: "An account with this email already exists. Try logging in." };
-        }
         if (error.code === "weak_password") {
           return { success: false, message: "Choose a stronger password and try again." };
         }
-        return { success: false, message: "We couldn't create your account. Check your details and try again." };
+        return { success: false, message: "We couldn't complete signup. Check your details or try again later." };
       }
 
       const user = data?.user;

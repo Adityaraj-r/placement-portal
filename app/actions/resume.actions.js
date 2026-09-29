@@ -1,10 +1,10 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
+import { hasPdfSignature, isOwnedResumePath, validateResumeMetadata } from "@/lib/auth/rules.mjs";
 import { createClient } from "@/lib/supabase/supabaseServer";
 
 const RESUME_BUCKET = "Resumes";
-const MAX_RESUME_SIZE = 5 * 1024 * 1024;
 const SIGNED_URL_SECONDS = 60;
 const STAFF_ROLES = ["admin", "tpo", "coordinator"];
 
@@ -45,15 +45,6 @@ async function getStaffContext(supabase) {
   return { user };
 }
 
-function isOwnedResumePath(path, userId) {
-  if (typeof path !== "string" || !path || path.startsWith("/")) return false;
-  const segments = path.split("/");
-  return segments.length === 2
-    && segments[0] === userId
-    && Boolean(segments[1])
-    && !segments.some((segment) => segment === "." || segment === "..");
-}
-
 async function createResumeSignedUrl(supabase, path, userId) {
   if (!isOwnedResumePath(path, userId)) {
     return { error: "Resume is unavailable" };
@@ -73,18 +64,12 @@ export async function uploadStudentResume(formData) {
     if (authError) return { success: false, error: authError };
 
     const file = formData?.get("resume");
-    if (!file || typeof file.arrayBuffer !== "function") {
-      return { success: false, error: "Choose a PDF resume to upload" };
-    }
-    if (file.size <= 0 || file.size > MAX_RESUME_SIZE) {
-      return { success: false, error: "Resume must be a PDF no larger than 5 MB" };
-    }
-    if (file.type !== "application/pdf" || !file.name?.toLowerCase().endsWith(".pdf")) {
-      return { success: false, error: "Only PDF resumes are allowed" };
-    }
+    const metadataError = validateResumeMetadata(file);
+    if (metadataError) return { success: false, error: metadataError };
+    if (typeof file.arrayBuffer !== "function") return { success: false, error: "Choose a PDF resume to upload" };
 
     const bytes = Buffer.from(await file.arrayBuffer());
-    if (bytes.length < 5 || bytes.subarray(0, 5).toString("ascii") !== "%PDF-") {
+    if (!hasPdfSignature(bytes)) {
       return { success: false, error: "The selected file is not a valid PDF" };
     }
 

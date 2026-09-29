@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/supabaseServer";
+import { canReadProfile } from "@/lib/auth/rules.mjs";
 
 const academicFields = [
   "college_id",
@@ -143,10 +144,7 @@ export async function getProfileById(profileId) {
 
     const { profile: callerProfile, error: authError } = await getAuthenticatedProfile(supabase);
     if (authError) return { success: false, error: authError };
-    if (!STAFF_ROLES.includes(callerProfile.role) && callerProfile.role !== "student") {
-      return { success: false, error: "Not authorized" };
-    }
-    if (callerProfile.role === "student" && targetProfileId !== callerProfile.id) {
+    if (!canReadProfile(callerProfile.role, callerProfile.id, targetProfileId)) {
       return { success: false, error: "Not authorized" };
     }
 
