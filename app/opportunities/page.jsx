@@ -5,7 +5,7 @@ import OpportunityCard from "@/components/OpportunityCard";
 // import { opportunities } from "@/data/opportunities";
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
-import { getAllNonAppliedOpportunities } from "../actions/opportunities.actions";
+import { getAllOpportunities } from "../actions/opportunities.actions";
 import { createClient } from "@/lib/supabase/supabaseClient";
 import { useRouter } from "next/navigation";
 
@@ -28,7 +28,7 @@ export default function OpportunitiesPage() {
       return [];
     }
     else {
-      const temp = await getAllNonAppliedOpportunities()
+      const temp = await getAllOpportunities()
       return temp.data ?? [];
     }
   }, [router]);

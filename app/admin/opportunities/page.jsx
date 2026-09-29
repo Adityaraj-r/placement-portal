@@ -113,20 +113,9 @@ export default function OpportunitiesPage() {
 
                 {/* Actions */}
                 <div className="flex items-center gap-2 pt-2">
-                  <Link
-                    href={`/admin/opportunities/${opp.id}/applicants`}
-                    className="flex-1"
-                  >
-                    <Button
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                      size="sm"
-                    >
-                      View Applications
-                    </Button>
-                  </Link>
                   <Link href={`/admin/opportunities/${opp.id}/edit`}>
-                    <Button variant="outline" size="sm">
-                      Edit
+                    <Button className="w-full" variant="outline" size="sm">
+                      Configure drive
                     </Button>
                   </Link>
                   {/* <Button variant="destructive" size="sm">

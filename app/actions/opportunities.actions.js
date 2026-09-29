@@ -1,8 +1,14 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/supabaseServer";
+import {
+  canManageDrives,
+  canTransitionDriveStatus,
+  canViewDrive,
+  validateDriveEligibility,
+  validateDriveForStatus,
+} from "@/lib/placement/drive-rules.mjs";
 
-const DRIVE_STATUSES = ["draft", "published", "in_progress", "completed", "cancelled"];
 const STAFF_ROLES = ["admin", "tpo", "coordinator"];
 const DRIVE_SELECT = `
   id,
@@ -21,6 +27,21 @@ const DRIVE_SELECT = `
   updated_at,
   companies ( id, name, website, industry, description, location )
 `;
+const STUDENT_DRIVE_SELECT = `
+  id,
+  company_id,
+  title,
+  job_description,
+  job_location,
+  package_lpa,
+  min_cgpa,
+  allowed_departments,
+  max_backlogs,
+  registration_deadline,
+  status,
+  created_at,
+  updated_at
+`;
 
 async function getStaffContext(supabase) {
   const {
@@ -35,7 +56,7 @@ async function getStaffContext(supabase) {
     .eq("user_id", user.id)
     .maybeSingle();
   if (error || !profile) return { error: "Could not verify your account" };
-  if (!STAFF_ROLES.includes(profile.role)) return { error: "Not authorized" };
+  if (!canManageDrives(profile.role)) return { error: "Not authorized" };
 
   return { user, profile };
 }
@@ -75,19 +96,11 @@ function buildDriveValues(input = {}) {
   if (!deadlineDate || Number.isNaN(deadlineDate.getTime())) {
     return { error: "Enter a valid registration deadline" };
   }
-  if (!Number.isInteger(maxBacklogs) || maxBacklogs < 0) {
-    return { error: "Maximum backlogs must be a non-negative whole number" };
-  }
   if (Number.isNaN(packageLpa) || (packageLpa != null && packageLpa < 0)) {
     return { error: "Package must be zero or greater" };
   }
-  if (Number.isNaN(minCgpa) || (minCgpa != null && (minCgpa < 0 || minCgpa > 10))) {
-    return { error: "Minimum CGPA must be between 0 and 10" };
-  }
-  if (!DRIVE_STATUSES.includes(status)) {
-    return { error: "Choose a valid placement drive status" };
-  }
-
+  const eligibilityError = validateDriveEligibility(minCgpa, maxBacklogs);
+  if (eligibilityError) return { error: eligibilityError };
   return {
     values: {
       company_id: companyId,
@@ -130,6 +143,20 @@ function toOpportunityView(drive) {
   };
 }
 
+async function attachStudentCompanyData(supabase, drives) {
+  if (!drives.length) return { data: [] };
+  const companyIds = [...new Set(drives.map((drive) => drive.company_id))];
+  const { data: companies, error } = await supabase
+    .from("published_drive_companies")
+    .select("id, name, website, industry, description, location")
+    .in("id", companyIds);
+  if (error) return { error: "Could not load published drive company information" };
+  const byId = new Map((companies || []).map((company) => [company.id, company]));
+  return {
+    data: drives.map((drive) => ({ ...drive, companies: byId.get(drive.company_id) || null })),
+  };
+}
+
 // Keep the established action names for the existing opportunity UI.
 export async function createOpportunity(opportunityData) {
   try {
@@ -139,6 +166,9 @@ export async function createOpportunity(opportunityData) {
 
     const { values, error: validationError } = buildDriveValues(opportunityData);
     if (validationError) return { success: false, error: validationError };
+    if (values.status !== "draft") {
+      return { success: false, error: "New placement drives must be saved as drafts first" };
+    }
 
     const { error: companyError } = await verifyCompany(supabase, values.company_id);
     if (companyError) return { success: false, error: companyError };
@@ -178,17 +208,24 @@ export async function updateOpportunity(id, opportunityData) {
 
     const { data: currentDrive, error: driveError } = await supabase
       .from("placement_drives")
-      .select("id")
+      .select("id, status")
       .eq("id", id)
       .maybeSingle();
     if (driveError || !currentDrive) {
       return { success: false, error: "Placement drive not found or unavailable" };
     }
 
+    if (!canTransitionDriveStatus(currentDrive.status, values.status)) {
+      return { success: false, error: `Cannot change a ${currentDrive.status} drive to ${values.status}` };
+    }
+    const publishingError = validateDriveForStatus(values, values.status);
+    if (publishingError) return { success: false, error: publishingError };
+
     const { data: drive, error } = await supabase
       .from("placement_drives")
       .update({ ...values, updated_at: new Date().toISOString() })
       .eq("id", id)
+      .eq("status", currentDrive.status)
       .select(DRIVE_SELECT)
       .single();
     if (error || !drive) return { success: false, error: "Could not update the placement drive" };
@@ -205,10 +242,20 @@ export async function closeOpportunity(id) {
     const supabase = await createClient();
     const { error: authError } = await getStaffContext(supabase);
     if (authError) return { success: false, error: authError };
+    const { data: current, error: lookupError } = await supabase
+      .from("placement_drives")
+      .select("status")
+      .eq("id", id)
+      .maybeSingle();
+    if (lookupError || !current) return { success: false, error: "Placement drive not found or unavailable" };
+    if (!canTransitionDriveStatus(current.status, "cancelled")) {
+      return { success: false, error: `Cannot cancel a ${current.status} drive` };
+    }
     const { data: drive, error } = await supabase
       .from("placement_drives")
       .update({ status: "cancelled", updated_at: new Date().toISOString() })
       .eq("id", id)
+      .eq("status", current.status)
       .select(DRIVE_SELECT)
       .single();
     if (error || !drive) return { success: false, error: "Could not close the placement drive" };
@@ -236,13 +283,18 @@ export async function getAllOpportunities() {
 
     let query = supabase
       .from("placement_drives")
-      .select(DRIVE_SELECT)
+      .select(profile.role === "student" ? STUDENT_DRIVE_SELECT : DRIVE_SELECT)
       .order("created_at", { ascending: false });
     if (profile.role === "student") query = query.eq("status", "published");
     else if (!STAFF_ROLES.includes(profile.role)) return { success: false, error: "Not authorized" };
 
     const { data, error } = await query;
     if (error) return { success: false, error: "Could not load placement drives" };
+    if (profile.role === "student") {
+      const enriched = await attachStudentCompanyData(supabase, data || []);
+      if (enriched.error) return { success: false, error: enriched.error };
+      return { success: true, data: enriched.data.map(toOpportunityView) };
+    }
     return { success: true, data: (data || []).map(toOpportunityView) };
   } catch {
     return { success: false, error: "Could not load placement drives" };
@@ -266,17 +318,22 @@ export async function getOpportunityById(id) {
       .eq("user_id", user.id)
       .maybeSingle();
     if (profileError || !profile) return { success: false, error: "Could not verify your account" };
-    if (profile.role !== "student" && !STAFF_ROLES.includes(profile.role)) {
+    if (!canViewDrive(profile.role, "published")) {
       return { success: false, error: "Not authorized" };
     }
 
     let query = supabase
       .from("placement_drives")
-      .select(DRIVE_SELECT)
+      .select(profile.role === "student" ? STUDENT_DRIVE_SELECT : DRIVE_SELECT)
       .eq("id", id);
     if (profile.role === "student") query = query.eq("status", "published");
     const { data: drive, error } = await query.maybeSingle();
     if (error || !drive) return { success: false, error: "Placement drive not found or unavailable" };
+    if (profile.role === "student") {
+      const enriched = await attachStudentCompanyData(supabase, [drive]);
+      if (enriched.error) return { success: false, error: enriched.error };
+      return { success: true, data: toOpportunityView(enriched.data[0]) };
+    }
     return { success: true, data: toOpportunityView(drive) };
   } catch {
     return { success: false, error: "Could not load the placement drive" };

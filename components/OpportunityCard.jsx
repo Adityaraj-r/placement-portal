@@ -4,30 +4,9 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Building2, GraduationCap, Calendar, Briefcase } from "lucide-react";
-import { applyToOpportunity } from "@/app/actions/applications.actions";
-import { useState } from "react";
-import { toast } from "sonner";
-
+import Link from "next/link";
 
 export default function OpportunityCard({ opportunity }) {
-  const [applying, setApplying] = useState(false);
-  async function handleApply(id) {
-    setApplying(true);
-    try {
-      const result = await applyToOpportunity(id);
-      if (result?.success) {
-        toast.success("Application submitted successfully!");
-      } else {
-        toast.error(result?.error || "Failed to submit application");
-      }
-    } catch (err) {
-      toast.error("An error occurred. Please try again.");
-      console.error("Error applying:", err);
-    } finally {
-      setApplying(false);
-    }
-  }
-
   const formatDate = (dateString) => {
     if (!dateString) return null;
     try {
@@ -123,14 +102,10 @@ export default function OpportunityCard({ opportunity }) {
           )}
         </div>
 
-        {/* Apply Button */}
+        {/* Drive detail link */}
         <div className="mt-auto pt-3 border-t border-slate-100">
-          <Button
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium"
-            onClick={() => handleApply(opportunity.id)}
-            disabled={applying}
-          >
-            {applying ? "Applying..." : "Apply Now"}
+          <Button asChild className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium">
+            <Link href={`/opportunities/${opportunity.id}`}>View details</Link>
           </Button>
         </div>
       </CardContent>

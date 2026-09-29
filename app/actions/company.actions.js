@@ -1,8 +1,8 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/supabaseServer";
+import { canManageCompanies } from "@/lib/placement/drive-rules.mjs";
 
-const STAFF_ROLES = ["admin", "tpo", "coordinator"];
 const COMPANY_FIELDS = [
   "name",
   "website",
@@ -25,7 +25,7 @@ async function getStaffClient() {
     .eq("user_id", user.id)
     .maybeSingle();
   if (error || !profile) return { error: "Could not verify your account" };
-  if (!STAFF_ROLES.includes(profile.role)) return { error: "Not authorized" };
+  if (!canManageCompanies(profile.role)) return { error: "Not authorized" };
   return { supabase };
 }
 

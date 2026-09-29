@@ -11,6 +11,7 @@ import { getOpportunityById, updateOpportunity } from "@/app/actions/opportuniti
 import { toast } from "sonner";
 import Link from "next/link";
 import { getCompanies } from "@/app/actions/company.actions";
+import { DRIVE_STATUSES, canTransitionDriveStatus } from "@/lib/placement/drive-rules.mjs";
 import {
   Select,
   SelectContent,
@@ -142,11 +143,9 @@ export default function EditOpportunityPage() {
           <div className="space-y-1">
             <Label htmlFor="status">Drive Status</Label>
             <select id="status" value={opportunity.status || "draft"} onChange={(e) => handleFieldChange("status", e.target.value)} className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm">
-              <option value="draft">Draft</option>
-              <option value="published">Published</option>
-              <option value="in_progress">In progress</option>
-              <option value="completed">Completed</option>
-              <option value="cancelled">Cancelled</option>
+              {DRIVE_STATUSES.filter((status) => canTransitionDriveStatus(opportunity.status || "draft", status)).map((status) => (
+                <option key={status} value={status}>{status.replace("_", " ")}</option>
+              ))}
             </select>
           </div>
 
@@ -165,7 +164,7 @@ export default function EditOpportunityPage() {
             <Button className="bg-blue-600" onClick={handleUpdate} disabled={companies.length === 0}>
               Update Opportunity
             </Button>
-            <Button variant="destructive" onClick={handleClose}>
+            <Button variant="destructive" onClick={handleClose} disabled={["completed", "cancelled"].includes(opportunity.status)}>
               Close Opportunity
             </Button>
           </div>

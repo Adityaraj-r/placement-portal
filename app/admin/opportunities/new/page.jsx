@@ -32,8 +32,8 @@ export default function NewOpportunity() {
     max_backlogs: "0",
     deadline: "",
     description: "",
-    status: "draft",
   });
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     async function loadCompanies() {
@@ -48,7 +48,9 @@ export default function NewOpportunity() {
     setOpportunity((prev) => ({ ...prev, [field]: value }));
   };
 
-  async function handleCreate(){
+  async function handleCreate(event){
+    event.preventDefault();
+    setSaving(true);
     try {
       const result = await createOpportunity(opportunity);
       if (result.success) {
@@ -60,6 +62,8 @@ export default function NewOpportunity() {
     } catch (error) {
       console.log(error)
       toast.error("Could not create the placement drive.");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -71,11 +75,12 @@ export default function NewOpportunity() {
 
       <Card className="shadow-sm">
         <CardContent className="p-6 space-y-4">
+          <form className="space-y-4" onSubmit={handleCreate}>
 
           <div className="space-y-1">
             <Label htmlFor="company_id">Company</Label>
             <Select value={opportunity.company_id} onValueChange={(value) => handleChange("company_id", value)}>
-              <SelectTrigger id="company_id" className="w-full">
+              <SelectTrigger id="company_id" className="w-full" aria-label="Company" required>
                 <SelectValue placeholder="Select a company" />
               </SelectTrigger>
               <SelectContent>
@@ -97,6 +102,7 @@ export default function NewOpportunity() {
               id="role"
               value={opportunity.role}
               onChange={(e) => handleChange("role", e.target.value)}
+              required
             />
           </div>
 
@@ -133,18 +139,8 @@ export default function NewOpportunity() {
               type="datetime-local"
               value={opportunity.deadline}
               onChange={(e) => handleChange("deadline", e.target.value)}
+              required
             />
-          </div>
-
-          <div className="space-y-1">
-            <Label htmlFor="status">Drive Status</Label>
-            <select id="status" value={opportunity.status} onChange={(e) => handleChange("status", e.target.value)} className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm">
-              <option value="draft">Draft</option>
-              <option value="published">Published</option>
-              <option value="in_progress">In progress</option>
-              <option value="completed">Completed</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
           </div>
 
           <div className="space-y-1">
@@ -158,14 +154,13 @@ export default function NewOpportunity() {
             />
           </div>
 
-          <Button
+          <Button type="submit"
             className="bg-blue-600 text-white w-full"
-            onClick={handleCreate}
-            disabled={companies.length === 0}
+            disabled={companies.length === 0 || saving}
           >
-            Create Opportunity
+            {saving ? "Saving…" : "Save as draft"}
           </Button>
-
+          </form>
         </CardContent>
       </Card>
     </div>

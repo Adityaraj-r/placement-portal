@@ -15,6 +15,14 @@ import {
   validateNewPassword,
   validateResumeMetadata,
 } from "../lib/auth/rules.mjs";
+import {
+  canManageCompanies,
+  canManageDrives,
+  canTransitionDriveStatus,
+  canViewDrive,
+  validateDriveEligibility,
+  validateDriveForStatus,
+} from "../lib/placement/drive-rules.mjs";
 
 test("unauthenticated protected routes redirect while public pages stay public", () => {
   assert.equal(routeDecision("/admin/dashboard", null, false), "login");
@@ -47,6 +55,66 @@ test("Server Action staff authorization rejects missing sessions and non-staff r
   assert.equal(authorizationFailure({ id: "user-1" }, null, staffRoles), "unverified");
   assert.equal(authorizationFailure({ id: "user-1" }, { role: "student" }, staffRoles), "forbidden");
   assert.equal(authorizationFailure({ id: "user-1" }, { role: "tpo" }, staffRoles), null);
+});
+
+test("company and drive management is restricted to existing staff roles", () => {
+  for (const role of ["student", "unknown", null]) {
+    assert.equal(canManageCompanies(role), false);
+    assert.equal(canManageDrives(role), false);
+  }
+  for (const role of ["admin", "tpo", "coordinator"]) {
+    assert.equal(canManageCompanies(role), true);
+    assert.equal(canManageDrives(role), true);
+  }
+});
+
+test("students can view only published drives and cannot manage drives", () => {
+  assert.equal(canViewDrive("student", "published"), true);
+  assert.equal(canViewDrive("student", "draft"), false);
+  assert.equal(canViewDrive("student", "cancelled"), false);
+  assert.equal(canManageDrives("student"), false);
+});
+
+test("drive transitions enforce the allowed lifecycle and unpublish path", () => {
+  assert.equal(canTransitionDriveStatus("draft", "published"), true);
+  assert.equal(canTransitionDriveStatus("published", "draft"), true);
+  assert.equal(canTransitionDriveStatus("published", "in_progress"), true);
+  assert.equal(canTransitionDriveStatus("in_progress", "completed"), true);
+  assert.equal(canTransitionDriveStatus("draft", "completed"), false);
+  assert.equal(canTransitionDriveStatus("completed", "published"), false);
+  assert.equal(canTransitionDriveStatus("cancelled", "draft"), false);
+});
+
+test("publishing rejects missing, invalid, and expired deadlines and incomplete drives", () => {
+  const now = Date.parse("2026-01-02T00:00:00.000Z");
+  assert.match(validateDriveForStatus({}, "published", now), /company/);
+  assert.match(validateDriveForStatus({ company_id: "c", title: "Role" }, "published", now), /deadline/);
+  assert.match(validateDriveForStatus({ company_id: "c", title: "Role", registration_deadline: "invalid" }, "published", now), /deadline/);
+  assert.match(validateDriveForStatus({ company_id: "c", title: "Role", registration_deadline: "2026-01-01T00:00:00Z" }, "published", now), /future/);
+  assert.equal(validateDriveForStatus({ company_id: "c", title: "Role", registration_deadline: "2026-01-03T00:00:00Z" }, "published", now), null);
+  assert.match(validateDriveForStatus({}, "unknown", now), /valid placement drive status/);
+});
+
+test("drive eligibility validation rejects impossible CGPA and backlog values", () => {
+  assert.match(validateDriveEligibility(-0.1, 0), /CGPA/);
+  assert.match(validateDriveEligibility(10.1, 0), /CGPA/);
+  assert.match(validateDriveEligibility(8, -1), /backlogs/);
+  assert.match(validateDriveEligibility(8, 1.5), /backlogs/);
+  assert.equal(validateDriveEligibility(8, 1), null);
+});
+
+test("Phase 3A RLS migration scopes drive mutations to staff and separates public company fields", async () => {
+  const migration = await readFile(new URL("../supabase/migrations/202609300003_phase3a_company_drive_rls.sql", import.meta.url), "utf8");
+  assert.match(migration, /ALTER TABLE public\.companies ENABLE ROW LEVEL SECURITY/i);
+  assert.match(migration, /ALTER TABLE public\.placement_drives ENABLE ROW LEVEL SECURITY/i);
+  assert.match(migration, /AS RESTRICTIVE ON public\.placement_drives FOR UPDATE/i);
+  assert.match(migration, /AS RESTRICTIVE ON public\.placement_drives FOR ALL TO anon[\s\S]*USING \(false\) WITH CHECK \(false\)/i);
+  assert.match(migration, /AS RESTRICTIVE ON public\.companies FOR ALL TO anon[\s\S]*USING \(false\) WITH CHECK \(false\)/i);
+  assert.match(migration, /public\.get_my_role\(\) = ANY \(ARRAY\['admin', 'tpo', 'coordinator'\]/i);
+  assert.match(migration, /REVOKE ALL PRIVILEGES ON TABLE public\.published_drive_companies FROM PUBLIC, anon, authenticated/i);
+  assert.match(migration, /GRANT SELECT ON public\.published_drive_companies TO authenticated/i);
+  assert.match(migration, /published_drive_companies[\s\S]*company\.id, company\.name, company\.website,[\s\S]*company\.industry, company\.description, company\.location/i);
+  assert.doesNotMatch(migration, /hr_contact_(?:name|email)/i);
 });
 
 test("password reset enforces minimum length and confirmation", () => {
