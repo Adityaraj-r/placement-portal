@@ -36,7 +36,7 @@ export default function StudentNavbar() {
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
         <Link href="/opportunities" className="flex items-center gap-2">
           <span className="text-base font-semibold text-blue-600">
-            Coding Savvy
+            Placement Portal
           </span>
         </Link>
 

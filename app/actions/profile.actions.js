@@ -256,6 +256,12 @@ export async function getProfileByUserId(_userId) {
       .eq("user_id", user.id)
       .maybeSingle();
     if (studentError) {
+      if (process.env.NODE_ENV !== "production") {
+        console.error("Student profile lookup failed", {
+          code: studentError.code,
+          message: studentError.message,
+        });
+      }
       return { success: false, error: "Could not load student profile" };
     }
 

@@ -23,6 +23,8 @@ import Link from "next/link";
 export default function SignupPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [confirmationEmail, setConfirmationEmail] = useState("");
   const [errors, setErrors] = useState({ name: "", email: "", password: "" });
   const router = useRouter()
   // ✅ FORM STATE
@@ -62,16 +64,17 @@ export default function SignupPage() {
     }
 
     setLoading(true);
-    const res = await SignUp(email, password, name);
-    if (res?.success) {
-      toast.success("Account created. Please check your email to verify.");
-      router.push("/login")
-    } else if (res?.message) {
-      toast.error(res.message);
-    } else {
-      toast.error("Signup failed. Please try again.");
+    try {
+      const res = await SignUp(email, password, name);
+      if (res.success) {
+        setConfirmationEmail(email.trim());
+        toast.success("Account created. Check your email to verify it.");
+      } else {
+        toast.error(res.message);
+      }
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   // ✅ SUPABASE SIGNUP
@@ -83,6 +86,7 @@ export default function SignupPage() {
         email,
         password,
         options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
           data: {
             full_name: name.trim(),
           },
@@ -90,15 +94,59 @@ export default function SignupPage() {
       });
 
       if (error) {
-        console.log(error.message);
-        return { success: false, message: error.message };
+        if (error.code === "user_already_exists") {
+          return { success: false, message: "An account with this email already exists. Try logging in." };
+        }
+        if (error.code === "weak_password") {
+          return { success: false, message: "Choose a stronger password and try again." };
+        }
+        return { success: false, message: "We couldn't create your account. Check your details and try again." };
       }
 
-      console.log("Signup success:", data);
-      return { success: true, data };
-    } catch (err) {
-      console.log(err);
-      return { success: false, message: err?.message || "Unexpected error" };
+      const user = data?.user;
+      if (!user) {
+        return { success: false, message: "Signup could not be confirmed. Please try again." };
+      }
+
+      const isConfirmed = Boolean(user.email_confirmed_at || user.confirmed_at);
+      if (!isConfirmed && !data.session) {
+        return { success: true };
+      }
+
+      if (isConfirmed && data.session) {
+        return { success: true };
+      }
+
+      return {
+        success: false,
+        message: "We couldn't verify the signup status. Please try logging in or request another verification email.",
+      };
+    } catch {
+      return { success: false, message: "A network error prevented signup. Please try again." };
+    }
+  }
+
+  async function resendVerification() {
+    setResending(true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email: confirmationEmail,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+
+      if (error) {
+        toast.error("We couldn't resend the verification email. Please try again later.");
+      } else {
+        toast.success("Verification email sent. Check your inbox.");
+      }
+    } catch {
+      toast.error("A network error prevented us from resending the email.");
+    } finally {
+      setResending(false);
     }
   }
 
@@ -106,12 +154,31 @@ export default function SignupPage() {
     <div className="min-h-screen flex items-center justify-center bg-linear-to-b from-white to-blue-50 px-4">
       <Card className="w-full max-w-md shadow-xl rounded-2xl">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Welcome to Coding Savvy</CardTitle>
+          <CardTitle className="text-2xl">Welcome to Placement Portal</CardTitle>
           <CardDescription>Create your account</CardDescription>
         </CardHeader>
 
         <CardContent>
-          {/* ROLE */}
+          {confirmationEmail ? (
+            <div className="space-y-4 text-center" role="status">
+              <h2 className="text-lg font-semibold">Account created successfully</h2>
+              <p className="text-sm text-muted-foreground">
+                We sent a verification link to:
+              </p>
+              <p className="font-medium break-all">{confirmationEmail}</p>
+              <p className="text-sm text-muted-foreground">
+                Please verify your email before logging in. If it doesn&apos;t arrive, check your spam folder.
+              </p>
+              <Button className="w-full" onClick={() => router.push("/login")}>
+                Go to Login
+              </Button>
+              <Button type="button" variant="outline" className="w-full" onClick={resendVerification} disabled={resending}>
+                {resending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Resend verification email
+              </Button>
+            </div>
+          ) : (
+          <>
 
 
           <form onSubmit={handleSignup} className="space-y-4">
@@ -201,6 +268,9 @@ export default function SignupPage() {
             </Link>
           </div>
 
+          </>
+          )}
+
           {/* OAUTH */}
           {/* <div className="flex items-center my-6">
             <div className="flex-1 h-px bg-border" />
@@ -221,7 +291,7 @@ export default function SignupPage() {
           </div> */}
 
           <p className="mt-6 text-center text-xs text-muted-foreground">
-            Coding Savvy Platform
+            Placement Portal Platform
           </p>
         </CardContent>
       </Card>

@@ -2,6 +2,33 @@ import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 export async function proxy(req) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey =
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ??
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  const path = req.nextUrl.pathname;
+  const requiresAuth =
+    path.startsWith("/admin") ||
+    path.startsWith("/profile") ||
+    path.startsWith("/opportunities") ||
+    path.startsWith("/applications") ||
+    path.startsWith("/login") ||
+    path.startsWith("/signup");
+
+  // Public pages should still render when the project has not configured Supabase.
+  // Authenticated routes fail closed rather than accidentally becoming public.
+  if (!supabaseUrl || !supabaseKey) {
+    if (requiresAuth) {
+      return new NextResponse(
+        "Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY (or NEXT_PUBLIC_SUPABASE_ANON_KEY) in .env.local, then restart the dev server.",
+        { status: 503 }
+      );
+    }
+    return NextResponse.next();
+  }
+
   let supabaseResponse = NextResponse.next({
     request: {
       headers: req.headers,
@@ -9,8 +36,8 @@ export async function proxy(req) {
   });
 
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    supabaseUrl,
+    supabaseKey,
     {
       cookies: {
         getAll() {
@@ -36,8 +63,6 @@ export async function proxy(req) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
-  const path = req.nextUrl.pathname;
 
   // Define route groups
   const isProtectedAdminRoute = path.startsWith("/admin");

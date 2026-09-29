@@ -2,6 +2,17 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
+### Configure Supabase
+
+Copy `.env.example` to `.env.local` and replace the placeholders with the
+Project URL and publishable (or legacy anon) key from **Supabase → Project
+Settings → API**. Restart the development server after changing environment
+variables. These public client credentials are not database passwords or
+service-role secrets.
+
+Without these values, public pages can still load, while authentication routes
+return a configuration error instead of crashing the entire app.
+
 First, run the development server:
 
 ```bash

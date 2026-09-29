@@ -26,13 +26,12 @@ export default function EditProfilePage() {
 
       if (!user) return;
 
-      const { success, data, error } = await getProfileByUserId();
+      const { success, data } = await getProfileByUserId();
 
       if (success) {
         setProfile(data);
       } else {
         toast.error("Could not load your profile. Please try again.");
-        console.error("Error fetching profile:", error);
       }
     }
 

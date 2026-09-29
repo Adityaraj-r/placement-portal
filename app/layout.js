@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "Coding Savvy",
+  title: "Placement Portal",
   description: "",
 };
 

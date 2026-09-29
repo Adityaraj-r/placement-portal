@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/supabaseClient";
 import { toast } from "sonner";
@@ -19,11 +19,12 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { createProfile, getProfileByUserId } from "../actions/profile.actions";
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [showVerificationHelp, setShowVerificationHelp] = useState(false);
   const router = useRouter()
   const [errors, setErrors] = useState({ email: "", password: "" });
   // ✅ FORM STATE
@@ -31,6 +32,16 @@ export default function LoginPage() {
     email: "",
     password: "",
   });
+
+  useEffect(() => {
+    const error = new URLSearchParams(window.location.search).get("error");
+    if (error === "confirmation_failed") {
+      setShowVerificationHelp(true);
+      toast.error("That verification link is invalid or expired. Request a new verification email and try again.");
+    } else if (error === "profile_unavailable") {
+      toast.error("Your account is verified, but its profile is not ready. Please contact support.");
+    }
+  }, []);
 
   // ✅ HANDLE INPUT CHANGE
   function handleChange(e) {
@@ -60,15 +71,20 @@ export default function LoginPage() {
     }
 
     setLoading(true);
-    const result = await signIn(email, password);
-    if (result?.success) {
-      toast.success("Logged in successfully.");
-    } else if (result?.message) {
-      toast.error(result.message);
-    } else {
-      toast.error("Login failed. Please try again.");
+    setShowVerificationHelp(false);
+    try {
+      const result = await signIn(email, password);
+      if (result?.success) {
+        toast.success("Logged in successfully.");
+      } else if (result?.verificationRequired) {
+        setShowVerificationHelp(true);
+        toast.error("Please verify your email before logging in. Check your inbox for the verification email.");
+      } else {
+        toast.error(result?.message || "Login failed. Please try again.");
+      }
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   // ✅ SUPABASE LOGIN
@@ -82,10 +98,17 @@ export default function LoginPage() {
       });
 
       if (error) {
-        return { success: false, message: error.message };
+        const notConfirmed =
+          error.code === "email_not_confirmed" ||
+          error.message?.toLowerCase().includes("email not confirmed");
+        if (notConfirmed) {
+          return { success: false, verificationRequired: true };
+        }
+        if (["invalid_credentials", "user_not_found"].includes(error.code)) {
+          return { success: false, message: "Email or password is incorrect." };
+        }
+        return { success: false, message: "We couldn't log you in. Please try again." };
       }
-
-      console.log("Login success:", data);
 
       // Retrieve the authenticated user's profile to read database-backed role
       const {
@@ -98,7 +121,6 @@ export default function LoginPage() {
         .maybeSingle();
 
       if (profileError) {
-        console.error("Error fetching profile:", profileError.message);
         return { success: false, message: "Error fetching user profile." };
       }
 
@@ -112,9 +134,31 @@ export default function LoginPage() {
         router.push("/opportunities");
         return { success: true };
       }
-    } catch (err) {
-      console.log(err);
-      return { success: false, message: err?.message || "Unexpected error" };
+    } catch {
+      return { success: false, message: "A network error prevented login. Please try again." };
+    }
+  }
+
+  async function resendVerification() {
+    setResending(true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email: formData.email.trim(),
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+      if (error) {
+        toast.error("We couldn't resend the verification email. Check the address and try again later.");
+      } else {
+        toast.success("If the account needs verification, a new email is on its way.");
+      }
+    } catch {
+      toast.error("A network error prevented us from resending the email.");
+    } finally {
+      setResending(false);
     }
   }
 
@@ -122,7 +166,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-linear-to-b from-white to-blue-50 px-4">
       <Card className="w-full max-w-md shadow-xl rounded-2xl">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Welcome to Coding Savvy</CardTitle>
+          <CardTitle className="text-2xl">Welcome to Placement Portal</CardTitle>
           <CardDescription>Login to your account</CardDescription>
         </CardHeader>
 
@@ -190,6 +234,18 @@ export default function LoginPage() {
             </Button>
           </form>
 
+          {showVerificationHelp && (
+            <div className="mt-4 space-y-2 text-sm" role="status">
+              <p className="text-muted-foreground">
+                Please verify your email before logging in. Check your inbox and spam folder.
+              </p>
+              <Button type="button" variant="outline" className="w-full" onClick={resendVerification} disabled={resending || !formData.email.trim()}>
+                {resending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Resend verification email
+              </Button>
+            </div>
+          )}
+
           {/* Sign up link */}
           <div className="mt-6 text-center text-sm">
             <span className="text-muted-foreground">Don&apos;t have an account? </span>
@@ -228,7 +284,7 @@ export default function LoginPage() {
           </div> */}
 
           <p className="mt-6 text-center text-xs text-muted-foreground">
-            Coding Savvy Platform
+            Placement Portal Platform
           </p>
         </CardContent>
       </Card>
