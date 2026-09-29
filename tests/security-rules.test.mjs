@@ -23,6 +23,17 @@ import {
   validateDriveEligibility,
   validateDriveForStatus,
 } from "../lib/placement/drive-rules.mjs";
+import {
+  PHASE_3B_APPLICATION_STATUSES,
+  applicationTransitions,
+  canReviewApplications,
+  canTransitionApplication,
+  evaluateDriveEligibility,
+  isApplicationForDrive,
+  isApplicationResumeScope,
+  isStudentAccountForUser,
+  validateApplicationSubmission,
+} from "../lib/applications/application-rules.mjs";
 
 test("unauthenticated protected routes redirect while public pages stay public", () => {
   assert.equal(routeDecision("/admin/dashboard", null, false), "login");
@@ -115,6 +126,98 @@ test("Phase 3A RLS migration scopes drive mutations to staff and separates publi
   assert.match(migration, /GRANT SELECT ON public\.published_drive_companies TO authenticated/i);
   assert.match(migration, /published_drive_companies[\s\S]*company\.id, company\.name, company\.website,[\s\S]*company\.industry, company\.description, company\.location/i);
   assert.doesNotMatch(migration, /hr_contact_(?:name|email)/i);
+});
+
+test("student identity is accepted only from the authenticated account profile", () => {
+  assert.equal(isStudentAccountForUser("auth-user-1", { id: "profile-1", user_id: "auth-user-1", role: "student" }), true);
+  assert.equal(isStudentAccountForUser("auth-user-1", { id: "profile-1", user_id: "auth-user-2", role: "student" }), false);
+  assert.equal(isStudentAccountForUser("auth-user-1", { id: "profile-1", user_id: "auth-user-1", role: "admin" }), false);
+});
+
+test("application submission rejects non-students and missing drive/profile context", () => {
+  assert.match(validateApplicationSubmission({ role: null }), /Only students/);
+  assert.match(validateApplicationSubmission({ role: "tpo" }), /Only students/);
+  assert.match(validateApplicationSubmission({ role: "student", studentProfile: null }), /Complete your student profile/);
+  assert.match(validateApplicationSubmission({ role: "student", studentProfile: {}, drive: null }), /Placement drive/);
+});
+
+test("application submission requires a published drive and valid future deadline", () => {
+  const studentProfile = { cgpa: 8, department: "Computer Science", backlogs: 0, resume_path: "user/resume.pdf" };
+  const drive = { company_id: "company-1", status: "draft", registration_deadline: "2026-01-03T00:00:00Z", allowed_departments: [], max_backlogs: 0 };
+  assert.match(validateApplicationSubmission({ role: "student", studentProfile, drive }), /not open/);
+  assert.match(validateApplicationSubmission({ role: "student", studentProfile, drive: { ...drive, status: "published", registration_deadline: "2026-01-01T00:00:00Z" }, now: Date.parse("2026-01-02T00:00:00Z") }), /passed/);
+  assert.match(validateApplicationSubmission({ role: "student", studentProfile, drive: { ...drive, company_id: null, status: "published" } }), /company association/);
+});
+
+test("drive eligibility checks CGPA, department, and backlog criteria", () => {
+  const drive = { min_cgpa: 7.5, allowed_departments: ["Computer Science"], max_backlogs: 1 };
+  assert.equal(evaluateDriveEligibility({ cgpa: 8, department: "computer science", backlogs: 1 }, drive), null);
+  assert.match(evaluateDriveEligibility({ cgpa: 7, department: "Computer Science", backlogs: 0 }, drive), /CGPA/);
+  assert.match(evaluateDriveEligibility({ cgpa: 8, department: "Electrical", backlogs: 0 }, drive), /department/);
+  assert.match(evaluateDriveEligibility({ cgpa: 8, department: "Computer Science", backlogs: 2 }, drive), /backlog/);
+});
+
+test("invalid or missing student academic data fails eligibility closed", () => {
+  const drive = { min_cgpa: 7, allowed_departments: ["CS"], max_backlogs: 0 };
+  assert.match(evaluateDriveEligibility({ cgpa: 11, department: "CS", backlogs: 0 }, drive), /CGPA/);
+  assert.match(evaluateDriveEligibility({ cgpa: 8, department: "CS", backlogs: -1 }, drive), /backlog/);
+  assert.match(evaluateDriveEligibility({ cgpa: 8, department: "CS", backlogs: 0 }, { ...drive, max_backlogs: -1 }), /eligibility requirements/);
+});
+
+test("application submission requires a resume and rejects duplicates", () => {
+  const base = {
+    role: "student",
+    studentProfile: { cgpa: 8, department: "CS", backlogs: 0, resume_path: "student/resume.pdf" },
+    drive: { company_id: "company-1", status: "published", registration_deadline: "2099-01-01T00:00:00Z", min_cgpa: 7, allowed_departments: ["CS"], max_backlogs: 0 },
+  };
+  assert.match(validateApplicationSubmission({ ...base, hasResume: false }), /Upload a resume/);
+  assert.match(validateApplicationSubmission({ ...base, hasResume: true, existingApplication: { id: "application-1" } }), /already applied/);
+  assert.equal(validateApplicationSubmission({ ...base, hasResume: true, existingApplication: null }), null);
+});
+
+test("application review is staff-only and follows the Phase 3B status graph", () => {
+  assert.equal(canReviewApplications("student"), false);
+  assert.equal(canReviewApplications("admin"), true);
+  assert.deepEqual(applicationTransitions("applied"), ["eligible", "ineligible"]);
+  assert.deepEqual(applicationTransitions("eligible"), ["shortlisted", "rejected"]);
+  assert.deepEqual(applicationTransitions("ineligible"), []);
+  assert.equal(canTransitionApplication("applied", "eligible"), true);
+  assert.equal(canTransitionApplication("eligible", "shortlisted"), true);
+  assert.equal(canTransitionApplication("applied", "shortlisted"), false);
+  assert.equal(canTransitionApplication("ineligible", "shortlisted"), false);
+  assert.equal(canTransitionApplication("rejected", "eligible"), false);
+  assert.equal(PHASE_3B_APPLICATION_STATUSES.includes("selected"), false);
+});
+
+test("staff application status changes are bound to the reviewed drive", () => {
+  const applicationFromDriveA = { id: "application-a", drive_id: "drive-a", status: "applied" };
+  const applicationFromDriveB = { id: "application-b", drive_id: "drive-b", status: "applied" };
+
+  assert.equal(isApplicationForDrive(applicationFromDriveB, "drive-a"), false);
+  assert.equal(isApplicationForDrive(applicationFromDriveA, "drive-a"), true);
+  assert.equal(canTransitionApplication(applicationFromDriveA.status, "eligible"), true);
+});
+
+test("applicant resume access must match both the drive and student profile", () => {
+  const application = { drive_id: "drive-a", student_id: "student-profile-a" };
+  assert.equal(isApplicationResumeScope(application, "drive-a", "student-profile-a"), true);
+  assert.equal(isApplicationResumeScope(application, "drive-b", "student-profile-a"), false);
+  assert.equal(isApplicationResumeScope(application, "drive-a", "student-profile-b"), false);
+  assert.equal(isApplicationResumeScope(null, "drive-a", "student-profile-a"), false);
+});
+
+test("Phase 3B RLS migration constrains application ownership, insertion, updates, and transitions", async () => {
+  const migration = await readFile(new URL("../supabase/migrations/202609300004_phase3b_application_security.sql", import.meta.url), "utf8");
+  assert.match(migration, /ALTER TABLE public\.applications ENABLE ROW LEVEL SECURITY/i);
+  assert.match(migration, /account\.user_id = auth\.uid\(\)/i);
+  assert.match(migration, /status::text = 'applied'/i);
+  assert.match(migration, /drive\.status = 'published'[\s\S]*drive\.registration_deadline > now\(\)/i);
+  assert.match(migration, /student\.resume_path IS NOT NULL/i);
+  assert.match(migration, /USING \(public\.get_my_role\(\) = ANY \(ARRAY\['admin', 'tpo', 'coordinator'\]/i);
+  assert.match(migration, /CREATE TRIGGER "Phase 3B application status transition"/i);
+  assert.match(migration, /OLD\.status::text = 'applied'[\s\S]*NEW\.status::text IN \('eligible', 'ineligible'\)/i);
+  assert.match(migration, /OLD\.status::text = 'eligible'[\s\S]*NEW\.status::text IN \('shortlisted', 'rejected'\)/i);
+  assert.match(migration, /REVOKE UPDATE ON TABLE public\.applications FROM authenticated, anon/i);
 });
 
 test("password reset enforces minimum length and confirmation", () => {

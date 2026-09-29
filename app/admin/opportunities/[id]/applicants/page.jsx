@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useEffect, useMemo, useState } from "react";
 import { getApplicantsByDrive, updateApplicationStatus } from "@/app/actions/applications.actions";
-import { createPlacement } from "@/app/actions/placement.actions";
+import { applicationTransitions, PHASE_3B_APPLICATION_STATUSES } from "@/lib/applications/application-rules.mjs";
 import { getApplicantResumeSignedUrl } from "@/app/actions/resume.actions";
 import { getOpportunityById } from "@/app/actions/opportunities.actions";
 import { useParams, useRouter } from "next/navigation";
@@ -31,19 +31,11 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 
-const APPLICATION_STATUSES = [
-  "applied",
-  "eligible",
-  "ineligible",
-  "shortlisted",
-  "rejected",
-  "selected",
-];
+const APPLICATION_STATUSES = PHASE_3B_APPLICATION_STATUSES;
 
 export default function ApplicantsPage() {
   const { id } = useParams();
@@ -56,14 +48,6 @@ export default function ApplicantsPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedApplicant, setSelectedApplicant] = useState(null);
-  const [placementApplicant, setPlacementApplicant] = useState(null);
-  const [placementForm, setPlacementForm] = useState({
-    package_lpa: "",
-    offer_status: "offered",
-    placement_date: "",
-    joining_date: "",
-  });
-  const [creatingPlacement, setCreatingPlacement] = useState(false);
   const [loadingApplicants, setLoadingApplicants] = useState(true);
 
   const filteredApplicants = useMemo(() => {
@@ -87,7 +71,7 @@ export default function ApplicantsPage() {
   async function handleStatusChange(applicationId, status) {
     setUpdatingApplicationId(applicationId);
     try {
-      const result = await updateApplicationStatus(applicationId, status);
+      const result = await updateApplicationStatus(applicationId, id, status);
       if (!result?.success) {
         toast.error(result?.error || "Could not update application status");
         return;
@@ -125,45 +109,6 @@ export default function ApplicantsPage() {
     }
   }
 
-  function openPlacementDialog(applicant) {
-    setPlacementForm({
-      package_lpa: opportunity?.package_lpa ?? "",
-      offer_status: "offered",
-      placement_date: "",
-      joining_date: "",
-    });
-    setPlacementApplicant(applicant);
-  }
-
-  function closePlacementDialog() {
-    if (creatingPlacement) return;
-    setPlacementApplicant(null);
-    setPlacementForm({ package_lpa: "", offer_status: "offered", placement_date: "", joining_date: "" });
-  }
-
-  async function handleCreatePlacement(event) {
-    event.preventDefault();
-    if (!placementApplicant) return;
-    setCreatingPlacement(true);
-    try {
-      const result = await createPlacement(placementApplicant.id, placementForm);
-      if (!result?.success) {
-        toast.error(result?.error || "Could not create placement");
-        return;
-      }
-      toast.success("Placement created.");
-      setPlacementApplicant(null);
-      setPlacementForm({ package_lpa: "", offer_status: "offered", placement_date: "", joining_date: "" });
-      const refreshedApplicants = await getApplicantsByDrive(id);
-      if (refreshedApplicants?.success) setApplicants(refreshedApplicants.data ?? []);
-      router.refresh();
-    } catch {
-      toast.error("Could not create placement");
-    } finally {
-      setCreatingPlacement(false);
-    }
-  }
-
   useEffect(() => {
     async function getData() {
       setLoadingApplicants(true);
@@ -197,7 +142,6 @@ export default function ApplicantsPage() {
       "CGPA",
       "Backlogs",
       "Application Status",
-      "Current Round",
       "Applied Date",
     ];
     const escapeCsv = (value) => {
@@ -215,7 +159,6 @@ export default function ApplicantsPage() {
       app.student_profiles?.cgpa,
       app.student_profiles?.backlogs,
       app.status,
-      app.current_round,
       app.applied_at,
     ]);
     const csv = [headers, ...rows].map((row) => row.map(escapeCsv).join(",")).join("\r\n");
@@ -332,9 +275,7 @@ export default function ApplicantsPage() {
                 <TableHead className="font-semibold">Branch</TableHead>
                 <TableHead className="font-semibold">Skills</TableHead>
                 <TableHead className="font-semibold">Status</TableHead>
-                <TableHead className="font-semibold">Current Round</TableHead>
                 <TableHead className="font-semibold">Details</TableHead>
-                <TableHead className="font-semibold">Placement</TableHead>
                 <TableHead className="font-semibold">Resume</TableHead>
               </TableRow>
             </TableHeader>
@@ -363,35 +304,30 @@ export default function ApplicantsPage() {
                       : "-"}
                   </TableCell>
                   <TableCell>
-                    <Select
-                      value={app.status || "applied"}
-                      onValueChange={(status) => handleStatusChange(app.id, status)}
-                      disabled={updatingApplicationId === app.id}
-                    >
-                      <SelectTrigger className="w-36" aria-label={`Application status for ${app.profiles?.name || "applicant"}`}>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {APPLICATION_STATUSES.map((status) => (
-                          <SelectItem key={status} value={status}>
-                            {status.charAt(0).toUpperCase() + status.slice(1)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    {applicationTransitions(app.status).length ? (
+                      <Select
+                        value={app.status || "applied"}
+                        onValueChange={(status) => handleStatusChange(app.id, status)}
+                        disabled={updatingApplicationId === app.id}
+                      >
+                        <SelectTrigger className="w-36" aria-label={`Application status for ${app.profiles?.name || "applicant"}`}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={app.status} disabled>Current: {app.status}</SelectItem>
+                          {applicationTransitions(app.status).map((status) => (
+                            <SelectItem key={status} value={status}>
+                              {status.charAt(0).toUpperCase() + status.slice(1)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : <Badge variant="secondary">{app.status}</Badge>}
                   </TableCell>
-                  <TableCell>{app.current_round || "-"}</TableCell>
                   <TableCell>
                     <Button variant="outline" size="sm" onClick={() => setSelectedApplicant(app)}>
                       Details
                     </Button>
-                  </TableCell>
-                  <TableCell>
-                    {app.status === "selected" && (
-                      <Button variant="outline" size="sm" onClick={() => openPlacementDialog(app)}>
-                        Create Placement
-                      </Button>
-                    )}
                   </TableCell>
                   <TableCell>
                     <Button
@@ -408,7 +344,7 @@ export default function ApplicantsPage() {
             })}
             {!loadingApplicants && filteredApplicants.length === 0 && (
               <TableRow>
-                <TableCell colSpan={10} className="py-8 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={8} className="py-8 text-center text-sm text-muted-foreground">
                   {applicants.length === 0
                     ? "No applicants have applied to this placement drive yet."
                     : search.trim() && statusFilter !== "all"
@@ -447,7 +383,6 @@ export default function ApplicantsPage() {
                   ["CGPA", selectedApplicant.student_profiles?.cgpa],
                   ["Backlogs", selectedApplicant.student_profiles?.backlogs],
                   ["Application status", selectedApplicant.status],
-                  ["Current round", selectedApplicant.current_round],
                   ["Applied date", formatDate(selectedApplicant.applied_at)],
                 ].map(([label, value]) => (
                   <div key={label}>
@@ -469,90 +404,6 @@ export default function ApplicantsPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={Boolean(placementApplicant)} onOpenChange={(open) => { if (!open) closePlacementDialog(); }}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
-          {placementApplicant && (
-            <form className="space-y-5" onSubmit={handleCreatePlacement}>
-              <DialogHeader>
-                <DialogTitle>Create Placement</DialogTitle>
-                <DialogDescription>
-                  Record an offer for this selected applicant. The application will remain selected.
-                </DialogDescription>
-              </DialogHeader>
-
-              <dl className="grid grid-cols-1 gap-x-6 gap-y-3 rounded-lg bg-slate-50 p-4 text-sm sm:grid-cols-2">
-                {[
-                  ["Student", placementApplicant.profiles?.name],
-                  ["Email", placementApplicant.profiles?.email],
-                  ["Job title", opportunity?.role],
-                  ["Company", opportunity?.company_name],
-                  ["Application status", placementApplicant.status],
-                ].map(([label, value]) => (
-                  <div key={label}>
-                    <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</dt>
-                    <dd className="mt-1 text-gray-900">{value || "-"}</dd>
-                  </div>
-                ))}
-              </dl>
-
-              <div className="space-y-1">
-                <Label htmlFor="placement-package">Package (LPA)</Label>
-                <Input
-                  id="placement-package"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={placementForm.package_lpa}
-                  onChange={(event) => setPlacementForm((current) => ({ ...current, package_lpa: event.target.value }))}
-                />
-              </div>
-
-              <div className="space-y-1">
-                <Label htmlFor="placement-offer-status">Offer Status</Label>
-                <Select
-                  value={placementForm.offer_status}
-                  onValueChange={(value) => setPlacementForm((current) => ({ ...current, offer_status: value }))}
-                >
-                  <SelectTrigger id="placement-offer-status" className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="offered">Offered</SelectItem>
-                    <SelectItem value="accepted">Accepted</SelectItem>
-                    <SelectItem value="rejected">Rejected</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div className="space-y-1">
-                  <Label htmlFor="placement-date">Placement Date</Label>
-                  <Input
-                    id="placement-date"
-                    type="date"
-                    value={placementForm.placement_date}
-                    onChange={(event) => setPlacementForm((current) => ({ ...current, placement_date: event.target.value }))}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="joining-date">Joining Date</Label>
-                  <Input
-                    id="joining-date"
-                    type="date"
-                    value={placementForm.joining_date}
-                    onChange={(event) => setPlacementForm((current) => ({ ...current, joining_date: event.target.value }))}
-                  />
-                </div>
-              </div>
-
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={closePlacementDialog} disabled={creatingPlacement}>Cancel</Button>
-                <Button type="submit" disabled={creatingPlacement}>{creatingPlacement ? "Creating…" : "Create Placement"}</Button>
-              </DialogFooter>
-            </form>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

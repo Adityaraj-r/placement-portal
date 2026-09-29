@@ -2,6 +2,7 @@
 
 import { randomUUID } from "node:crypto";
 import { hasPdfSignature, isOwnedResumePath, validateResumeMetadata } from "@/lib/auth/rules.mjs";
+import { isApplicationResumeScope } from "@/lib/applications/application-rules.mjs";
 import { createClient } from "@/lib/supabase/supabaseServer";
 
 const RESUME_BUCKET = "Resumes";
@@ -166,11 +167,11 @@ export async function getApplicantResumeSignedUrl(driveId, studentProfileId) {
 
     const { data: application, error: applicationError } = await supabase
       .from("applications")
-      .select("id")
+      .select("id, drive_id, student_id")
       .eq("drive_id", driveId)
       .eq("student_id", studentProfileId)
       .maybeSingle();
-    if (applicationError || !application) {
+    if (applicationError || !isApplicationResumeScope(application, driveId, studentProfileId)) {
       return { success: false, error: "Applicant resume is unavailable" };
     }
 

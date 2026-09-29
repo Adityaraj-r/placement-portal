@@ -1,17 +1,17 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/supabaseServer";
-import { authorizationFailure, checkRegistrationDeadline, isDuplicateApplication, ownsApplication } from "@/lib/auth/rules.mjs";
+import { authorizationFailure, ownsApplication } from "@/lib/auth/rules.mjs";
+import {
+  canReviewApplications,
+  canTransitionApplication,
+  evaluateDriveEligibility,
+  isApplicationForDrive,
+  isStudentAccountForUser,
+  validateApplicationSubmission,
+} from "@/lib/applications/application-rules.mjs";
 
 const STAFF_ROLES = ["admin", "tpo", "coordinator"];
-const APPLICATION_STATUSES = [
-  "applied",
-  "eligible",
-  "ineligible",
-  "shortlisted",
-  "rejected",
-  "selected",
-];
 
 async function getCurrentStudent(supabase) {
   const {
@@ -22,69 +22,20 @@ async function getCurrentStudent(supabase) {
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("id, role")
+    .select("id, user_id, role")
     .eq("user_id", user.id)
     .maybeSingle();
-  if (profileError || profile?.role !== "student") {
+  if (profileError || !isStudentAccountForUser(user.id, profile)) {
     return { error: "Student account not found" };
   }
 
   const { data: studentProfile, error: studentError } = await supabase
     .from("student_profiles")
-    .select("id, profile_id, cgpa, department, backlogs")
+    .select("id, profile_id, cgpa, department, backlogs, resume_path")
     .eq("profile_id", profile.id)
     .maybeSingle();
   if (studentError) return { error: "Could not load your student profile" };
-  return { user, studentProfile };
-}
-
-function checkDriveEligibility(studentProfile, drive) {
-  const allowedDepartments = Array.isArray(drive.allowed_departments)
-    ? drive.allowed_departments.map((department) => String(department).trim()).filter(Boolean)
-    : [];
-
-  if (drive.min_cgpa != null) {
-    const minimumCgpa = Number(drive.min_cgpa);
-    if (!Number.isFinite(minimumCgpa)) {
-      return "Could not verify this placement drive's eligibility requirements";
-    }
-    const cgpa = studentProfile.cgpa;
-    if (cgpa == null || cgpa === "" || !Number.isFinite(Number(cgpa))) {
-      return "Add your CGPA to your student profile before applying";
-    }
-    if (Number(cgpa) < minimumCgpa) {
-      return "You do not meet this drive's CGPA requirement";
-    }
-  }
-
-  if (allowedDepartments.length > 0) {
-    const department = typeof studentProfile.department === "string"
-      ? studentProfile.department.trim()
-      : "";
-    if (!department) {
-      return "Add your department to your student profile before applying";
-    }
-    const matchesDepartment = allowedDepartments.some(
-      (allowedDepartment) => allowedDepartment.toLocaleLowerCase() === department.toLocaleLowerCase(),
-    );
-    if (!matchesDepartment) {
-      return "Your department is not eligible for this placement drive";
-    }
-  }
-
-  const backlogs = studentProfile.backlogs;
-  if (backlogs == null || backlogs === "" || !Number.isFinite(Number(backlogs))) {
-    return "Add your backlog count to your student profile before applying";
-  }
-  const maximumBacklogs = drive.max_backlogs == null ? 0 : Number(drive.max_backlogs);
-  if (!Number.isFinite(maximumBacklogs) || maximumBacklogs < 0) {
-    return "Could not verify this placement drive's eligibility requirements";
-  }
-  if (Number(backlogs) > maximumBacklogs) {
-    return "You do not meet this drive's backlog requirement";
-  }
-
-  return null;
+  return { user, profile, studentProfile };
 }
 
 async function verifyStaff(supabase) {
@@ -102,60 +53,50 @@ async function verifyStaff(supabase) {
     .maybeSingle();
   const authorization = authorizationFailure(user, profile, STAFF_ROLES, null, error);
   if (authorization === "unverified") return { error: "Could not verify your account" };
-  if (authorization === "forbidden") return { error: "Not authorized" };
+  if (authorization === "forbidden" || !canReviewApplications(profile?.role)) return { error: "Not authorized" };
   return { user, profile };
 }
 
 export async function applyToOpportunity(driveId) {
-  if (!driveId) return { success: false, error: "Placement drive is required" };
+  if (typeof driveId !== "string" || !driveId.trim()) return { success: false, error: "Placement drive is required" };
 
   try {
     const supabase = await createClient();
-    const { studentProfile, error: studentError } = await getCurrentStudent(supabase);
+    const { profile, studentProfile, error: studentError } = await getCurrentStudent(supabase);
     if (studentError) return { success: false, error: studentError };
-    if (!studentProfile) {
-      return { success: false, error: "Complete your student profile before applying" };
-    }
 
     const { data: drive, error: driveError } = await supabase
       .from("placement_drives")
-      .select("id, status, registration_deadline, min_cgpa, allowed_departments, max_backlogs, companies ( id )")
-      .eq("id", driveId)
+      .select("id, company_id, status, registration_deadline, min_cgpa, allowed_departments, max_backlogs")
+      .eq("id", driveId.trim())
       .maybeSingle();
-    if (driveError || !drive) {
-      return { success: false, error: "Placement drive not found or unavailable" };
-    }
-    if (!drive.companies) {
-      return { success: false, error: "The company for this placement drive is unavailable" };
-    }
-    if (drive.status !== "published") {
-      return { success: false, error: "Applications are not open for this placement drive" };
-    }
+    if (driveError) return { success: false, error: "Could not verify this placement drive" };
 
-    const deadlineError = checkRegistrationDeadline(drive.registration_deadline);
-    if (deadlineError) return { success: false, error: deadlineError };
-
-    const eligibilityError = checkDriveEligibility(studentProfile, drive);
-    if (eligibilityError) return { success: false, error: eligibilityError };
-
-    const { data: existingApplication, error: duplicateCheckError } = await supabase
-      .from("applications")
-      .select("id")
-      .eq("student_id", studentProfile.id)
-      .eq("drive_id", driveId)
-      .maybeSingle();
-    if (duplicateCheckError) {
-      return { success: false, error: "Could not verify your application status" };
+    let existingApplication = null;
+    if (studentProfile && drive) {
+      const { data, error } = await supabase
+        .from("applications")
+        .select("id")
+        .eq("student_id", studentProfile.id)
+        .eq("drive_id", drive.id)
+        .maybeSingle();
+      if (error) return { success: false, error: "Could not verify your application status" };
+      existingApplication = data;
     }
-    if (isDuplicateApplication(existingApplication)) {
-      return { success: false, error: "You have already applied to this placement drive" };
-    }
+    const validationError = validateApplicationSubmission({
+      role: profile?.role,
+      studentProfile,
+      drive: driveError ? null : drive,
+      hasResume: Boolean(studentProfile?.resume_path),
+      existingApplication,
+    });
+    if (validationError) return { success: false, error: validationError };
 
     const now = new Date().toISOString();
     const { data, error } = await supabase
       .from("applications")
       .insert({
-        drive_id: driveId,
+        drive_id: drive.id,
         student_id: studentProfile.id,
         status: "applied",
         applied_at: now,
@@ -174,6 +115,53 @@ export async function applyToOpportunity(driveId) {
     return { success: true, data };
   } catch {
     return { success: false, error: "Could not submit your application" };
+  }
+}
+
+export async function getMyApplicationEligibility(driveId) {
+  if (typeof driveId !== "string" || !driveId.trim()) {
+    return { success: false, error: "Placement drive is required" };
+  }
+
+  try {
+    const supabase = await createClient();
+    const { profile, studentProfile, error: studentError } = await getCurrentStudent(supabase);
+    if (studentError) return { success: false, error: studentError };
+
+    const { data: drive, error: driveError } = await supabase
+      .from("placement_drives")
+      .select("id, company_id, status, registration_deadline, min_cgpa, allowed_departments, max_backlogs")
+      .eq("id", driveId.trim())
+      .maybeSingle();
+    if (driveError) return { success: false, error: "Could not verify this placement drive" };
+
+    let existingApplication = null;
+    if (studentProfile && drive) {
+      const { data, error } = await supabase
+        .from("applications")
+        .select("id, status")
+        .eq("student_id", studentProfile.id)
+        .eq("drive_id", drive.id)
+        .maybeSingle();
+      if (error) return { success: false, error: "Could not verify your application status" };
+      existingApplication = data;
+    }
+
+    const validationError = validateApplicationSubmission({
+      role: profile?.role,
+      studentProfile,
+      drive,
+      hasResume: Boolean(studentProfile?.resume_path),
+      existingApplication,
+    });
+    return {
+      success: true,
+      eligible: !validationError,
+      error: validationError,
+      applicationStatus: existingApplication?.status || null,
+    };
+  } catch {
+    return { success: false, error: "Could not check your application eligibility" };
   }
 }
 
@@ -207,16 +195,29 @@ export async function getMyApplications() {
           max_backlogs,
           registration_deadline,
           status,
-          companies ( id, name, location, website )
+          company_id
         )
       `)
       .eq("student_id", studentProfile.id)
       .order("applied_at", { ascending: false });
 
     if (error) return { success: false, error: "Could not load your applications" };
+    const companyIds = [...new Set((data || []).map((application) => application.placement_drives?.company_id).filter(Boolean))];
+    const { data: companies, error: companyError } = companyIds.length
+      ? await supabase.from("published_drive_companies").select("id, name, location, website").in("id", companyIds)
+      : { data: [], error: null };
+    if (companyError) return { success: false, error: "Could not load company information for your applications" };
+    const companyById = new Map((companies || []).map((company) => [company.id, company]));
     return {
       success: true,
-      data: (data || []).filter((application) => ownsApplication(studentProfile.id, application)),
+      data: (data || [])
+        .filter((application) => ownsApplication(studentProfile.id, application))
+        .map((application) => ({
+          ...application,
+          placement_drives: application.placement_drives
+            ? { ...application.placement_drives, companies: companyById.get(application.placement_drives.company_id) || null }
+            : null,
+        })),
     };
   } catch {
     return { success: false, error: "Could not load your applications" };
@@ -283,11 +284,11 @@ export async function getApplicantsByDrive(driveId) {
   }
 }
 
-export async function updateApplicationStatus(applicationId, statusValue) {
-  if (!applicationId) {
-    return { success: false, error: "Application is required" };
+export async function updateApplicationStatus(applicationId, driveId, statusValue) {
+  if (!applicationId || typeof driveId !== "string" || !driveId.trim()) {
+    return { success: false, error: "Application and placement drive are required" };
   }
-  if (typeof statusValue !== "string" || !APPLICATION_STATUSES.includes(statusValue)) {
+  if (typeof statusValue !== "string") {
     return { success: false, error: "Choose a valid application status" };
   }
 
@@ -298,16 +299,34 @@ export async function updateApplicationStatus(applicationId, statusValue) {
 
     const { data: existingApplication, error: lookupError } = await supabase
       .from("applications")
-      .select("id")
+      .select("id, status, drive_id, student_id")
       .eq("id", applicationId)
       .maybeSingle();
     if (lookupError) return { success: false, error: "Could not verify the application" };
-    if (!existingApplication) return { success: false, error: "Application not found" };
+    if (!isApplicationForDrive(existingApplication, driveId.trim())) {
+      return { success: false, error: "Application not found for this placement drive" };
+    }
+    if (!canTransitionApplication(existingApplication.status, statusValue)) {
+      return { success: false, error: `Cannot change an application from ${existingApplication.status} to ${statusValue}` };
+    }
+
+    if (statusValue === "eligible") {
+      const [{ data: studentProfile, error: studentError }, { data: drive, error: driveError }] = await Promise.all([
+        supabase.from("student_profiles").select("cgpa, department, backlogs").eq("id", existingApplication.student_id).maybeSingle(),
+        supabase.from("placement_drives").select("min_cgpa, allowed_departments, max_backlogs").eq("id", existingApplication.drive_id).maybeSingle(),
+      ]);
+      if (studentError || driveError || !studentProfile || !drive) {
+        return { success: false, error: "Could not verify applicant eligibility" };
+      }
+      const eligibilityError = evaluateDriveEligibility(studentProfile, drive);
+      if (eligibilityError) return { success: false, error: eligibilityError };
+    }
 
     const { data, error } = await supabase
       .from("applications")
       .update({ status: statusValue, updated_at: new Date().toISOString() })
       .eq("id", applicationId)
+      .eq("status", existingApplication.status)
       .select()
       .maybeSingle();
     if (error || !data) return { success: false, error: "Could not update application status" };

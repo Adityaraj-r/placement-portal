@@ -4,27 +4,56 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getOpportunityById } from "@/app/actions/opportunities.actions";
+import { applyToOpportunity, getMyApplicationEligibility } from "@/app/actions/applications.actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { toast } from "sonner";
 
 export default function OpportunityDetailsPage() {
   const { id } = useParams();
   const router = useRouter();
   const [drive, setDrive] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [applicationCheck, setApplicationCheck] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     let active = true;
     async function load() {
-      const result = await getOpportunityById(id);
+      const [result, eligibility] = await Promise.all([
+        getOpportunityById(id),
+        getMyApplicationEligibility(id),
+      ]);
       if (!active) return;
       if (result?.success && result.data?.status === "published") setDrive(result.data);
       else setDrive(null);
+      if (eligibility?.success) setApplicationCheck(eligibility);
+      else setApplicationCheck({ eligible: false, error: eligibility?.error || "Could not check application eligibility" });
       setLoading(false);
     }
     if (id) load();
     return () => { active = false; };
   }, [id]);
+
+  async function handleApply() {
+    if (!applicationCheck?.eligible || submitting) return;
+    setSubmitting(true);
+    try {
+      const result = await applyToOpportunity(id);
+      if (!result?.success) {
+        toast.error(result?.error || "Could not submit your application");
+        const eligibility = await getMyApplicationEligibility(id);
+        if (eligibility?.success) setApplicationCheck(eligibility);
+        return;
+      }
+      setApplicationCheck({ eligible: false, applicationStatus: "applied", error: null });
+      toast.success("Application submitted successfully.");
+    } catch {
+      toast.error("Could not submit your application");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   if (loading) return <main className="mx-auto max-w-3xl p-8" aria-live="polite">Loading placement drive…</main>;
   if (!drive) {
@@ -62,6 +91,24 @@ export default function OpportunityDetailsPage() {
               {drive.min_cgpa != null ? ` · Minimum CGPA ${drive.min_cgpa}` : ""}
               {` · Maximum backlogs ${drive.max_backlogs ?? 0}`}
             </p>
+          </section>
+          <section className="space-y-3 border-t pt-4" aria-live="polite">
+            {applicationCheck?.applicationStatus ? (
+              <p className="font-medium">Your application status: {applicationCheck.applicationStatus}</p>
+            ) : applicationCheck?.eligible ? (
+              <p className="text-sm text-green-700">Your profile meets the listed eligibility requirements.</p>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-sm text-amber-800">{applicationCheck?.error || "Checking application eligibility…"}</p>
+                {applicationCheck?.error?.toLowerCase().includes("profile") || applicationCheck?.error?.toLowerCase().includes("resume") ? (
+                  <Link className="text-sm text-blue-600 underline" href="/profile">Review your profile</Link>
+                ) : null}
+              </div>
+            )}
+            <Button onClick={handleApply} disabled={!applicationCheck?.eligible || submitting}>
+              {submitting ? "Submitting…" : "Apply to this drive"}
+            </Button>
+            <Link className="ml-3 text-sm text-blue-600 underline" href="/applications">My Applications</Link>
           </section>
         </CardContent>
       </Card>
