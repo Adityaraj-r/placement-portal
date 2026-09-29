@@ -11,6 +11,24 @@ const academicFields = [
   "backlogs",
   "skills",
 ];
+const STAFF_ROLES = ["admin", "tpo", "coordinator"];
+
+async function getAuthenticatedProfile(supabase) {
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+  if (authError || !user) return { error: "Unauthorized" };
+
+  const { data: profile, error } = await supabase
+    .from("profiles")
+    .select("id, role")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (error || !profile) return { error: "Could not verify your account" };
+
+  return { profile };
+}
 
 async function saveStudentProfile(profileData = {}) {
   try {
@@ -27,7 +45,7 @@ async function saveStudentProfile(profileData = {}) {
 
     const { data: accountProfile, error: profileError } = await supabase
       .from("profiles")
-      .select("role")
+      .select("id, role")
       .eq("user_id", user.id)
       .maybeSingle();
     if (profileError || accountProfile?.role !== "student") {
@@ -56,20 +74,43 @@ async function saveStudentProfile(profileData = {}) {
       }
     }
 
-    const studentUpdates = { user_id: user.id };
+    const studentUpdates = { profile_id: accountProfile.id };
     for (const field of academicFields) {
       if (Object.hasOwn(profileData, field)) {
         studentUpdates[field] = profileData[field];
       }
     }
 
-    const { data: studentProfile, error: studentError } = await supabase
+    const { data: existingStudentProfile, error: studentLookupError } = await supabase
       .from("student_profiles")
-      .upsert(studentUpdates, { onConflict: "user_id" })
-      .select()
-      .single();
+      .select("id")
+      .eq("profile_id", accountProfile.id)
+      .maybeSingle();
+
+    if (studentLookupError) {
+      return { success: false, error: "Could not load student profile" };
+    }
+
+    const { data: studentProfile, error: studentError } = existingStudentProfile
+      ? await supabase
+          .from("student_profiles")
+          .update(studentUpdates)
+          .eq("id", existingStudentProfile.id)
+          .select()
+          .single()
+      : await supabase
+          .from("student_profiles")
+          .insert(studentUpdates)
+          .select()
+          .single();
 
     if (studentError) {
+      if (process.env.NODE_ENV !== "production") {
+        console.error("Student profile save failed", {
+          code: studentError.code,
+          message: studentError.message,
+        });
+      }
       return { success: false, error: "Could not save student profile" };
     }
 
@@ -92,25 +133,27 @@ export async function updateProfile(profileData) {
 
 
 export async function getProfileById(profileId) {
-  if (!profileId) {
+  if (typeof profileId !== "string" || !profileId.trim()) {
     return { success: false, error: "Profile ID is required" };
   }
+  const targetProfileId = profileId.trim();
 
   try {
     const supabase = await createClient();
 
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return { success: false, error: "Unauthorized" };
+    const { profile: callerProfile, error: authError } = await getAuthenticatedProfile(supabase);
+    if (authError) return { success: false, error: authError };
+    if (!STAFF_ROLES.includes(callerProfile.role) && callerProfile.role !== "student") {
+      return { success: false, error: "Not authorized" };
+    }
+    if (callerProfile.role === "student" && targetProfileId !== callerProfile.id) {
+      return { success: false, error: "Not authorized" };
     }
 
     const { data: accountProfile, error } = await supabase
       .from("profiles")
       .select("*")
-      .eq("id", profileId)
+      .eq("id", targetProfileId)
       .single();
 
     if (error) {
@@ -120,7 +163,7 @@ export async function getProfileById(profileId) {
     const { data: studentProfile, error: studentError } = await supabase
       .from("student_profiles")
       .select("*")
-      .eq("user_id", accountProfile.user_id)
+      .eq("profile_id", accountProfile.id)
       .maybeSingle();
     if (studentError) {
       return { success: false, error: "Could not load student profile" };
@@ -139,13 +182,10 @@ export async function getAllProfiles() {
   try {
     const supabase = await createClient();
 
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return { success: false, error: "Unauthorized" };
+    const { profile, error: authError } = await getAuthenticatedProfile(supabase);
+    if (authError) return { success: false, error: authError };
+    if (!STAFF_ROLES.includes(profile.role)) {
+      return { success: false, error: "Not authorized" };
     }
 
     const { data: profiles, error } = await supabase
@@ -156,29 +196,29 @@ export async function getAllProfiles() {
       return { success: false, error: error.message };
     }
 
-    const studentIds = profiles
+    const studentProfileIds = profiles
       .filter((profile) => profile.role === "student")
-      .map((profile) => profile.user_id);
-    const { data: studentProfiles, error: studentError } = studentIds.length
+      .map((profile) => profile.id);
+    const { data: studentProfiles, error: studentError } = studentProfileIds.length
       ? await supabase
           .from("student_profiles")
           .select("*")
-          .in("user_id", studentIds)
+          .in("profile_id", studentProfileIds)
       : { data: [], error: null };
 
     if (studentError) {
       return { success: false, error: "Could not load student profiles" };
     }
 
-    const studentProfilesByUserId = new Map(
-      studentProfiles.map((profile) => [profile.user_id, profile]),
+    const studentProfilesByProfileId = new Map(
+      studentProfiles.map((profile) => [profile.profile_id, profile]),
     );
     return {
       success: true,
       data: profiles
         .filter((profile) => profile.role === "student")
         .map((profile) =>
-          combineProfile(profile, studentProfilesByUserId.get(profile.user_id)),
+          combineProfile(profile, studentProfilesByProfileId.get(profile.id)),
         ),
     };
   } catch {
@@ -190,29 +230,32 @@ export async function getAllProfiles() {
 }
 
 export async function deleteProfileById(profileId) {
-  if (!profileId) {
+  if (typeof profileId !== "string" || !profileId.trim()) {
     return { success: false, error: "Profile ID is required" };
   }
+  const targetProfileId = profileId.trim();
 
   try {
     const supabase = await createClient();
 
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return { success: false, error: "Unauthorized" };
+    const { profile, error: authError } = await getAuthenticatedProfile(supabase);
+    if (authError) return { success: false, error: authError };
+    if (!STAFF_ROLES.includes(profile.role)) {
+      return { success: false, error: "Not authorized" };
     }
 
-    const { error } = await supabase
+    const { data: deletedProfile, error } = await supabase
       .from("profiles")
       .delete()
-      .eq("id", profileId);
+      .eq("id", targetProfileId)
+      .select("id")
+      .maybeSingle();
 
     if (error) {
       return { success: false, error: error.message };
+    }
+    if (!deletedProfile) {
+      return { success: false, error: "Profile was not found or deletion is not permitted" };
     }
 
     return { success: true };
@@ -253,15 +296,9 @@ export async function getProfileByUserId(_userId) {
     const { data: studentProfile, error: studentError } = await supabase
       .from("student_profiles")
       .select("*")
-      .eq("user_id", user.id)
+      .eq("profile_id", accountProfile.id)
       .maybeSingle();
     if (studentError) {
-      if (process.env.NODE_ENV !== "production") {
-        console.error("Student profile lookup failed", {
-          code: studentError.code,
-          message: studentError.message,
-        });
-      }
       return { success: false, error: "Could not load student profile" };
     }
 

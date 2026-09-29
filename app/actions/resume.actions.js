@@ -3,7 +3,7 @@
 import { randomUUID } from "node:crypto";
 import { createClient } from "@/lib/supabase/supabaseServer";
 
-const RESUME_BUCKET = "resumes";
+const RESUME_BUCKET = "Resumes";
 const MAX_RESUME_SIZE = 5 * 1024 * 1024;
 const SIGNED_URL_SECONDS = 60;
 const STAFF_ROLES = ["admin", "tpo", "coordinator"];
@@ -17,14 +17,14 @@ async function getStudentContext(supabase) {
 
   const { data: profile, error } = await supabase
     .from("profiles")
-    .select("role")
+    .select("id, role")
     .eq("user_id", user.id)
     .maybeSingle();
   if (error || profile?.role !== "student") {
     return { error: "Only students can manage their resume" };
   }
 
-  return { user };
+  return { user, profileId: profile.id };
 }
 
 async function getStaffContext(supabase) {
@@ -69,7 +69,7 @@ async function createResumeSignedUrl(supabase, path, userId) {
 export async function uploadStudentResume(formData) {
   try {
     const supabase = await createClient();
-    const { user, error: authError } = await getStudentContext(supabase);
+    const { user, profileId, error: authError } = await getStudentContext(supabase);
     if (authError) return { success: false, error: authError };
 
     const file = formData?.get("resume");
@@ -105,7 +105,7 @@ export async function uploadStudentResume(formData) {
     const { data: existingProfile, error: profileReadError } = await supabase
       .from("student_profiles")
       .select("resume_path")
-      .eq("user_id", user.id)
+      .eq("profile_id", profileId)
       .maybeSingle();
     if (profileReadError) {
       await supabase.storage.from(RESUME_BUCKET).remove([resumePath]);
@@ -116,12 +116,12 @@ export async function uploadStudentResume(formData) {
       ? await supabase
           .from("student_profiles")
           .update({ resume_path: resumePath })
-          .eq("user_id", user.id)
+          .eq("profile_id", profileId)
           .select("resume_path")
           .maybeSingle()
       : await supabase
           .from("student_profiles")
-          .insert({ user_id: user.id, resume_path: resumePath })
+          .insert({ profile_id: profileId, resume_path: resumePath })
           .select("resume_path")
           .maybeSingle();
 
@@ -150,13 +150,13 @@ export async function uploadStudentResume(formData) {
 export async function getMyResumeSignedUrl() {
   try {
     const supabase = await createClient();
-    const { user, error: authError } = await getStudentContext(supabase);
+    const { user, profileId, error: authError } = await getStudentContext(supabase);
     if (authError) return { success: false, error: authError };
 
     const { data: studentProfile, error } = await supabase
       .from("student_profiles")
       .select("resume_path")
-      .eq("user_id", user.id)
+      .eq("profile_id", profileId)
       .maybeSingle();
     if (error) return { success: false, error: "Could not load your resume" };
     if (!studentProfile?.resume_path) return { success: false, error: "No resume has been uploaded" };
@@ -191,17 +191,26 @@ export async function getApplicantResumeSignedUrl(driveId, studentProfileId) {
 
     const { data: studentProfile, error: studentError } = await supabase
       .from("student_profiles")
-      .select("user_id, resume_path")
+      .select("profile_id, resume_path")
       .eq("id", studentProfileId)
       .maybeSingle();
-    if (studentError || !studentProfile?.resume_path || !studentProfile.user_id) {
+    if (studentError || !studentProfile?.resume_path || !studentProfile.profile_id) {
+      return { success: false, error: "No resume is available for this applicant" };
+    }
+
+    const { data: accountProfile, error: profileError } = await supabase
+      .from("profiles")
+      .select("user_id")
+      .eq("id", studentProfile.profile_id)
+      .maybeSingle();
+    if (profileError || !accountProfile?.user_id) {
       return { success: false, error: "No resume is available for this applicant" };
     }
 
     const result = await createResumeSignedUrl(
       supabase,
       studentProfile.resume_path,
-      studentProfile.user_id,
+      accountProfile.user_id,
     );
     if (result.error) return { success: false, error: result.error };
     return { success: true, url: result.url };

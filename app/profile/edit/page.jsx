@@ -14,28 +14,49 @@ import { toast } from "sonner";
 
 export default function EditProfilePage() {
   const [profile, setProfile] = useState({});
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [profileLoadFailed, setProfileLoadFailed] = useState(false);
   const router = useRouter();
   const skillsValue = Array.isArray(profile?.skills)
     ? profile.skills.join(", ")
     : profile?.skills || "";
 
   useEffect(() => {
+    let active = true;
+
     async function getData() {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
+      try {
+        const supabase = createClient();
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-      if (!user) return;
+        if (authError || !user) {
+          if (active) setProfileLoadFailed(true);
+          return;
+        }
 
-      const { success, data } = await getProfileByUserId();
+        const { success, data } = await getProfileByUserId();
 
-      if (success) {
-        setProfile(data);
-      } else {
-        toast.error("Could not load your profile. Please try again.");
+        if (!active) return;
+        if (success) {
+          setProfile(data);
+        } else {
+          setProfileLoadFailed(true);
+          toast.error("Could not load your profile. Please try again.");
+        }
+      } catch {
+        if (active) {
+          setProfileLoadFailed(true);
+          toast.error("Could not load your profile. Please try again.");
+        }
+      } finally {
+        if (active) setProfileLoading(false);
       }
     }
 
     getData();
+    return () => {
+      active = false;
+    };
   }, []);
 
   // Field change
@@ -45,6 +66,8 @@ export default function EditProfilePage() {
 
   // Save changes
   const handleSave = async () => {
+    if (profileLoading || profileLoadFailed) return;
+
     try {
       const updatedProfile = {
         full_name: profile.full_name ?? profile.name ?? "",
@@ -70,11 +93,9 @@ export default function EditProfilePage() {
         router.push("/profile");
       } else {
         toast.error(error || "Could not save your profile. Please try again.");
-        console.error("Error updating profile:", error);
       }
     } catch (err) {
       toast.error("Could not save your profile. Please try again.");
-      console.error("Unexpected error:", err.message);
     }
   };
 
@@ -88,6 +109,12 @@ export default function EditProfilePage() {
             Update your account and academic information
           </p>
         </div>
+
+        {profileLoadFailed && (
+          <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">
+            Your saved profile could not be loaded. Saving is disabled to protect your existing account details. Refresh the page or try again later.
+          </div>
+        )}
 
         {/* Form Card */}
         <Card className="bg-white border border-slate-200/80 rounded-xl shadow-md">
@@ -218,8 +245,9 @@ export default function EditProfilePage() {
             <Button
               className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium h-11 mt-2"
               onClick={handleSave}
+              disabled={profileLoading || profileLoadFailed}
             >
-              Save Changes
+              {profileLoading ? "Loading profile..." : profileLoadFailed ? "Profile unavailable" : "Save Changes"}
             </Button>
           </CardContent>
         </Card>

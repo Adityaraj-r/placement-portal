@@ -21,7 +21,7 @@ async function getCurrentStudent(supabase) {
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("role")
+    .select("id, role")
     .eq("user_id", user.id)
     .maybeSingle();
   if (profileError || profile?.role !== "student") {
@@ -30,8 +30,8 @@ async function getCurrentStudent(supabase) {
 
   const { data: studentProfile, error: studentError } = await supabase
     .from("student_profiles")
-    .select("id, user_id, cgpa, department, backlogs")
-    .eq("user_id", user.id)
+    .select("id, profile_id, cgpa, department, backlogs")
+    .eq("profile_id", profile.id)
     .maybeSingle();
   if (studentError) return { error: "Could not load your student profile" };
   return { user, studentProfile };
@@ -116,7 +116,7 @@ export async function applyToOpportunity(driveId) {
 
     const { data: drive, error: driveError } = await supabase
       .from("placement_drives")
-      .select("id, status, min_cgpa, allowed_departments, max_backlogs, companies ( id )")
+      .select("id, status, registration_deadline, min_cgpa, allowed_departments, max_backlogs, companies ( id )")
       .eq("id", driveId)
       .maybeSingle();
     if (driveError || !drive) {
@@ -127,6 +127,14 @@ export async function applyToOpportunity(driveId) {
     }
     if (drive.status !== "published") {
       return { success: false, error: "Applications are not open for this placement drive" };
+    }
+
+    const deadline = new Date(drive.registration_deadline);
+    if (!drive.registration_deadline || Number.isNaN(deadline.getTime())) {
+      return { success: false, error: "This placement drive has no valid registration deadline" };
+    }
+    if (new Date() > deadline) {
+      return { success: false, error: "The registration deadline for this drive has passed." };
     }
 
     const eligibilityError = checkDriveEligibility(studentProfile, drive);
@@ -232,31 +240,31 @@ export async function getApplicantsByDrive(driveId) {
         current_round,
         rejection_reason,
         applied_at,
-        student_profiles ( id, user_id, college_id, department, degree, graduation_year, cgpa, backlogs, skills )
+        student_profiles ( id, profile_id, college_id, department, degree, graduation_year, cgpa, backlogs, skills )
       `)
       .eq("drive_id", driveId)
       .order("applied_at", { ascending: false });
     if (error) return { success: false, error: "Could not load applicants" };
 
-    const userIds = [...new Set(
+    const profileIds = [...new Set(
       (applications || [])
-        .map((application) => application.student_profiles?.user_id)
+        .map((application) => application.student_profiles?.profile_id)
         .filter(Boolean),
     )];
-    const { data: profiles, error: profileError } = userIds.length
+    const { data: profiles, error: profileError } = profileIds.length
       ? await supabase
           .from("profiles")
-          .select("user_id, full_name, email")
-          .in("user_id", userIds)
+          .select("id, full_name, email")
+          .in("id", profileIds)
       : { data: [], error: null };
     if (profileError) return { success: false, error: "Could not load applicant details" };
 
-    const profileByUserId = new Map((profiles || []).map((profile) => [profile.user_id, profile]));
+    const profileById = new Map((profiles || []).map((profile) => [profile.id, profile]));
     return {
       success: true,
       data: (applications || []).map((application) => {
         const studentProfile = application.student_profiles;
-        const accountProfile = profileByUserId.get(studentProfile?.user_id);
+        const accountProfile = profileById.get(studentProfile?.profile_id);
         return {
           ...application,
           profiles: {

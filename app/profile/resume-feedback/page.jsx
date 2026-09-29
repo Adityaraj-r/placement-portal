@@ -17,7 +17,13 @@ export default function ResumeFeedbackPage() {
     const formData = new FormData(e.target);
     const file = formData.get("resume");
 
-    if (file.size > 5000000) {
+    if (!file || typeof file === "string" || typeof file.size !== "number" || file.size <= 0) {
+      setError("Choose a valid PDF resume.");
+      setLoading(false);
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
       setError("File too large. Max 5MB");
       setLoading(false);
       return;
@@ -25,9 +31,13 @@ export default function ResumeFeedbackPage() {
 
     try {
       const result = await getResumeFeedback(formData);
-      setFeedback(result);
-    } catch (err) {
-      setError(err.message);
+      if (result?.error) {
+        setError(result.error);
+      } else {
+        setFeedback(result);
+      }
+    } catch {
+      setError("Resume feedback could not be generated. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -41,7 +51,7 @@ export default function ResumeFeedbackPage() {
             Resume Feedback Assistant
           </h1>
           <p className="text-sm text-gray-500 mt-2">
-            Upload your resume (PDF) and get feedback on missing skills & formatting
+            Upload your resume (PDF) and get feedback on missing skills & formatting. Your PDF is sent to Google GenAI for processing.
           </p>
         </div>
 

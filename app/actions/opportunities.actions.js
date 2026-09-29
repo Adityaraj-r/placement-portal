@@ -31,7 +31,7 @@ async function getStaffContext(supabase) {
 
   const { data: profile, error } = await supabase
     .from("profiles")
-    .select("id, role")
+    .select("role")
     .eq("user_id", user.id)
     .maybeSingle();
   if (error || !profile) return { error: "Could not verify your account" };
@@ -294,7 +294,7 @@ export async function getAllNonAppliedOpportunities() {
 
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select("role")
+      .select("id, role")
       .eq("user_id", user.id)
       .maybeSingle();
     if (profileError || profile?.role !== "student") {
@@ -304,7 +304,7 @@ export async function getAllNonAppliedOpportunities() {
     const { data: studentProfile, error: studentError } = await supabase
       .from("student_profiles")
       .select("id")
-      .eq("user_id", user.id)
+      .eq("profile_id", profile.id)
       .maybeSingle();
     if (studentError) return { success: false, error: "Could not load student profile" };
 

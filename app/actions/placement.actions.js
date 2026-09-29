@@ -63,7 +63,7 @@ export async function getPlacements() {
       .from("placements")
       .select(`
         ${PLACEMENT_FIELDS},
-        student_profiles ( id, user_id, college_id, department, degree, graduation_year, cgpa, backlogs, skills ),
+        student_profiles ( id, profile_id, college_id, department, degree, graduation_year, cgpa, backlogs, skills ),
         companies ( id, name, website, industry, location ),
         placement_drives ( id, title, job_location, registration_deadline )
       `)
@@ -71,24 +71,24 @@ export async function getPlacements() {
     if (error) return { success: false, error: "Could not load placements" };
     if (!placements?.length) return { success: true, data: [] };
 
-    const userIds = [...new Set(placements
-      .map((placement) => firstRelation(placement.student_profiles)?.user_id)
+    const profileIds = [...new Set(placements
+      .map((placement) => firstRelation(placement.student_profiles)?.profile_id)
       .filter(Boolean))];
-    const profileByUserId = new Map();
-    if (userIds.length) {
+    const profileById = new Map();
+    if (profileIds.length) {
       const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
-        .select("user_id, full_name, email")
-        .in("user_id", userIds);
+        .select("id, full_name, email")
+        .in("id", profileIds);
       if (profilesError) return { success: false, error: "Could not load placement student details" };
-      for (const profile of profiles || []) profileByUserId.set(profile.user_id, profile);
+      for (const profile of profiles || []) profileById.set(profile.id, profile);
     }
 
     const data = placements.map((placement) => {
       const studentProfile = firstRelation(placement.student_profiles);
       const company = firstRelation(placement.companies);
       const drive = firstRelation(placement.placement_drives);
-      const profile = profileByUserId.get(studentProfile?.user_id);
+      const profile = profileById.get(studentProfile?.profile_id);
       return {
         ...placement,
         student: studentProfile ? {
