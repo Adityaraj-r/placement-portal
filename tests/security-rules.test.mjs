@@ -32,8 +32,20 @@ import {
   isApplicationForDrive,
   isApplicationResumeScope,
   isStudentAccountForUser,
+  PHASE_3C_APPLICATION_STATUSES,
   validateApplicationSubmission,
 } from "../lib/applications/application-rules.mjs";
+import {
+  canMakeFinalApplicationDecision,
+  canScheduleApplicationInterview,
+  canTransitionInterview,
+  canTransitionInterviewForApplication,
+  canTransitionOffer,
+  isOfferForStudent,
+  isPlacementForAcceptedOffer,
+  validateInterviewEvaluation,
+  validateInterviewInput,
+} from "../lib/placement/lifecycle-rules.mjs";
 
 test("unauthenticated protected routes redirect while public pages stay public", () => {
   assert.equal(routeDecision("/admin/dashboard", null, false), "login");
@@ -218,6 +230,53 @@ test("Phase 3B RLS migration constrains application ownership, insertion, update
   assert.match(migration, /OLD\.status::text = 'applied'[\s\S]*NEW\.status::text IN \('eligible', 'ineligible'\)/i);
   assert.match(migration, /OLD\.status::text = 'eligible'[\s\S]*NEW\.status::text IN \('shortlisted', 'rejected'\)/i);
   assert.match(migration, /REVOKE UPDATE ON TABLE public\.applications FROM authenticated, anon/i);
+});
+
+test("Phase 3C interview lifecycle requires shortlisted applications and valid schedule states", () => {
+  assert.equal(canScheduleApplicationInterview("shortlisted"), true);
+  assert.equal(canScheduleApplicationInterview("eligible"), false);
+  assert.equal(canTransitionInterviewForApplication("shortlisted", "scheduled", "completed"), true);
+  assert.equal(canTransitionInterviewForApplication("selected", "scheduled", "completed"), false);
+  assert.equal(canTransitionInterview("completed", "cancelled"), false);
+  const future = new Date(Date.now() + 60_000).toISOString();
+  assert.equal(validateInterviewInput({ scheduledAt: future, mode: "online", location: "", details: "" }), null);
+  assert.match(validateInterviewInput({ scheduledAt: "invalid", mode: "online", location: "", details: "" }), /future interview/);
+});
+
+test("Phase 3C evaluations and final decisions require a completed review", () => {
+  assert.equal(validateInterviewEvaluation({ score: "5", feedback: "Strong communication", recommendation: "select" }), null);
+  assert.match(validateInterviewEvaluation({ score: 6, feedback: "Feedback", recommendation: "select" }), /1 to 5/);
+  assert.match(validateInterviewEvaluation({ score: 4, feedback: " ", recommendation: "select" }), /feedback is required/);
+  assert.equal(canMakeFinalApplicationDecision("shortlisted", "selected", true), true);
+  assert.equal(canMakeFinalApplicationDecision("shortlisted", "selected", false), false);
+  assert.equal(canMakeFinalApplicationDecision("eligible", "selected", true), false);
+  assert.equal(PHASE_3C_APPLICATION_STATUSES.includes("selected"), true);
+});
+
+test("Phase 3C offers and placements preserve ownership and accepted-offer invariants", () => {
+  assert.equal(canTransitionOffer(null, true), true);
+  assert.equal(canTransitionOffer(null, false), true);
+  assert.equal(canTransitionOffer(false, true), false);
+  const offer = { id: "offer-1", application_id: "app-1", student_id: "profile-1", drive_id: "drive-1", is_accepted: true };
+  const application = { id: "app-1", student_id: "student-1", profile_id: "profile-1", drive_id: "drive-1" };
+  const placement = { id: "placement-1", application_id: "app-1", student_id: "student-1", drive_id: "drive-1" };
+  assert.equal(isOfferForStudent(offer, "profile-1"), true);
+  assert.equal(isOfferForStudent(offer, "profile-2"), false);
+  assert.equal(isPlacementForAcceptedOffer(placement, offer, application, "profile-1"), true);
+  assert.equal(isPlacementForAcceptedOffer(placement, { ...offer, is_accepted: false }, application, "profile-1"), false);
+  assert.equal(isPlacementForAcceptedOffer({ ...placement, drive_id: "drive-2" }, offer, application, "profile-1"), false);
+  assert.equal(isPlacementForAcceptedOffer(placement, offer, application, "profile-2"), false);
+});
+
+test("Phase 3C migration reuses offer and placement tables while applying row security", async () => {
+  const migration = await readFile(new URL("../supabase/migrations/202609300005_phase3c_interviews_offers_placements.sql", import.meta.url), "utf8");
+  assert.match(migration, /CREATE TABLE IF NOT EXISTS public\.application_interviews/i);
+  assert.match(migration, /CREATE TABLE IF NOT EXISTS public\.interview_evaluations/i);
+  assert.doesNotMatch(migration, /CREATE TABLE IF NOT EXISTS public\.(placement_offers|placements)/i);
+  assert.match(migration, /ALTER TABLE public\.placement_offers ENABLE ROW LEVEL SECURITY/i);
+  assert.match(migration, /ALTER TABLE public\.placements ENABLE ROW LEVEL SECURITY/i);
+  assert.match(migration, /ON CONFLICT \(application_id\) DO NOTHING/i);
+  assert.match(migration, /OLD\.status::text = 'shortlisted'[\s\S]*NEW\.status::text IN \('selected', 'rejected'\)/i);
 });
 
 test("password reset enforces minimum length and confirmation", () => {

@@ -8,6 +8,7 @@ import {
   Building2,
   X,
   GraduationCap,
+  ClipboardCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -54,6 +55,11 @@ export default function Sidebar({ open, setOpen }) {
       href: "/admin/companies",
       icon: Building2,
       label: "Companies",
+    },
+    {
+      href: "/admin/placements",
+      icon: ClipboardCheck,
+      label: "Placements",
     },
     {
       href: "/admin/students",

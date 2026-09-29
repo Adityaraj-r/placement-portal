@@ -4,10 +4,13 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/supabaseClient";
 import { getMyApplications } from "@/app/actions/applications.actions";
+import { respondToPlacementOffer } from "@/app/actions/lifecycle.actions";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Briefcase, Building2, Calendar, FileText } from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 
 function formatDate(value) {
   if (!value) return "-";
@@ -22,6 +25,25 @@ export default function MyApplicationsPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [applications, setApplications] = useState([]);
+  const [respondingOfferId, setRespondingOfferId] = useState(null);
+
+  async function handleOfferResponse(offerId, accept) {
+    setRespondingOfferId(offerId);
+    try {
+      const result = await respondToPlacementOffer(offerId, accept);
+      if (!result?.success) {
+        toast.error(result?.error || "Could not respond to offer");
+        return;
+      }
+      toast.success(accept ? "Offer accepted." : "Offer declined.");
+      const refreshed = await getMyApplications();
+      if (refreshed?.success) setApplications(refreshed.data || []);
+    } catch {
+      toast.error("Could not respond to offer");
+    } finally {
+      setRespondingOfferId(null);
+    }
+  }
 
   useEffect(() => {
     async function getData() {
@@ -204,6 +226,44 @@ export default function MyApplicationsPage() {
                               </div>
                             )}
                           </div>
+                        )}
+
+                        {app.interview && (
+                          <section className="space-y-1 border-t border-slate-100 pt-3 text-sm">
+                            <h4 className="font-semibold">Interview</h4>
+                            <p>Status: {app.interview.status}</p>
+                            <p>When: {new Date(app.interview.scheduled_at).toLocaleString()}</p>
+                            <p>Mode: {app.interview.mode}</p>
+                            {app.interview.location && <p>Location / link: {app.interview.location}</p>}
+                            {app.interview.details && <p>Details: {app.interview.details}</p>}
+                          </section>
+                        )}
+
+                        {app.offer && (
+                          <section className="space-y-2 border-t border-slate-100 pt-3 text-sm">
+                            <h4 className="font-semibold">Offer</h4>
+                            <p>Package: {app.offer.offered_ctc} LPA</p>
+                            <p>Status: {app.offer.is_accepted === null ? "offered" : app.offer.is_accepted ? "accepted" : "rejected"}</p>
+                            {app.offer.is_accepted === null && (
+                              <div className="flex gap-2">
+                                <Button size="sm" disabled={respondingOfferId === app.offer.id} onClick={() => handleOfferResponse(app.offer.id, true)}>
+                                  {respondingOfferId === app.offer.id ? "Saving…" : "Accept offer"}
+                                </Button>
+                                <Button size="sm" variant="outline" disabled={respondingOfferId === app.offer.id} onClick={() => handleOfferResponse(app.offer.id, false)}>
+                                  Reject offer
+                                </Button>
+                              </div>
+                            )}
+                          </section>
+                        )}
+
+                        {app.placement && (
+                          <section className="space-y-1 border-t border-slate-100 pt-3 text-sm">
+                            <h4 className="font-semibold">Placement</h4>
+                            <p>{app.placement.job_title} · {app.placement.offer_status}</p>
+                            {app.placement.placement_date && <p>Placement date: {app.placement.placement_date}</p>}
+                            {app.placement.joining_date && <p>Joining date: {app.placement.joining_date}</p>}
+                          </section>
                         )}
 
                         {/* Footer */}

@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/supabaseServer";
 import { authorizationFailure, ownsApplication } from "@/lib/auth/rules.mjs";
+import { canMakeFinalApplicationDecision } from "@/lib/placement/lifecycle-rules.mjs";
 import {
   canReviewApplications,
   canTransitionApplication,
@@ -202,6 +203,29 @@ export async function getMyApplications() {
       .order("applied_at", { ascending: false });
 
     if (error) return { success: false, error: "Could not load your applications" };
+    const applicationIds = (data || []).map((application) => application.id);
+    const [interviewsResult, offersResult, placementsResult] = applicationIds.length
+      ? await Promise.all([
+          supabase.from("application_interviews")
+            .select("id, application_id, scheduled_at, mode, location, details, status")
+            .in("application_id", applicationIds).order("scheduled_at", { ascending: false }),
+          supabase.from("placement_offers")
+            .select("id, application_id, offered_ctc, is_accepted, decided_at, created_at")
+            .in("application_id", applicationIds),
+          supabase.from("placements")
+            .select("id, application_id, job_title, package_lpa, offer_status, placement_date, joining_date")
+            .in("application_id", applicationIds),
+        ])
+      : [{ data: [], error: null }, { data: [], error: null }, { data: [], error: null }];
+    if (interviewsResult.error || offersResult.error || placementsResult.error) {
+      return { success: false, error: "Could not load your interview and offer information" };
+    }
+    const interviewByApplication = new Map();
+    for (const interview of interviewsResult.data || []) {
+      if (!interviewByApplication.has(interview.application_id)) interviewByApplication.set(interview.application_id, interview);
+    }
+    const offerByApplication = new Map((offersResult.data || []).map((offer) => [offer.application_id, offer]));
+    const placementByApplication = new Map((placementsResult.data || []).map((placement) => [placement.application_id, placement]));
     const companyIds = [...new Set((data || []).map((application) => application.placement_drives?.company_id).filter(Boolean))];
     const { data: companies, error: companyError } = companyIds.length
       ? await supabase.from("published_drive_companies").select("id, name, location, website").in("id", companyIds)
@@ -214,6 +238,9 @@ export async function getMyApplications() {
         .filter((application) => ownsApplication(studentProfile.id, application))
         .map((application) => ({
           ...application,
+          interview: interviewByApplication.get(application.id) || null,
+          offer: offerByApplication.get(application.id) || null,
+          placement: placementByApplication.get(application.id) || null,
           placement_drives: application.placement_drives
             ? { ...application.placement_drives, companies: companyById.get(application.placement_drives.company_id) || null }
             : null,
@@ -308,6 +335,28 @@ export async function updateApplicationStatus(applicationId, driveId, statusValu
     }
     if (!canTransitionApplication(existingApplication.status, statusValue)) {
       return { success: false, error: `Cannot change an application from ${existingApplication.status} to ${statusValue}` };
+    }
+
+    if (existingApplication.status === "shortlisted" && (statusValue === "selected" || statusValue === "rejected")) {
+      const { data: completedInterviews, error: interviewsError } = await supabase
+        .from("application_interviews")
+        .select("id")
+        .eq("application_id", existingApplication.id)
+        .eq("status", "completed");
+      if (interviewsError || !completedInterviews?.length) {
+        return { success: false, error: "Complete and evaluate an interview before making the final decision" };
+      }
+      const { data: evaluations, error: evaluationsError } = await supabase
+        .from("interview_evaluations")
+        .select("id")
+        .eq("application_id", existingApplication.id)
+        .in("interview_id", completedInterviews.map((interview) => interview.id));
+      if (evaluationsError || !evaluations?.length) {
+        return { success: false, error: "Complete and evaluate an interview before making the final decision" };
+      }
+      if (!canMakeFinalApplicationDecision(existingApplication.status, statusValue, true)) {
+        return { success: false, error: "Final decision is not valid for this application" };
+      }
     }
 
     if (statusValue === "eligible") {

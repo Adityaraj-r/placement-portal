@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/supabaseServer";
 
 const STAFF_ROLES = ["admin", "tpo", "coordinator"];
-const OFFER_STATUSES = ["offered", "accepted", "rejected"];
 const PLACEMENT_FIELDS = "id, application_id, student_id, drive_id, company_id, job_title, package_lpa, offer_status, placement_date, joining_date, created_at";
 
 async function verifyStaff(supabase) {
@@ -23,18 +22,6 @@ async function verifyStaff(supabase) {
 
 function isValidId(value) {
   return typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
-}
-
-function parseOptionalPackage(value) {
-  if (value === undefined || value === null || value === "") return { value: null };
-  if (typeof value !== "number" && typeof value !== "string") {
-    return { error: "Package must be a valid number" };
-  }
-  const packageLpa = Number(value);
-  if (!Number.isFinite(packageLpa) || packageLpa < 0) {
-    return { error: "Package must be a valid number greater than or equal to zero" };
-  }
-  return { value: packageLpa };
 }
 
 function parseOptionalDate(value, label) {
@@ -140,16 +127,8 @@ export async function updatePlacement(placementId, placementData = {}) {
     if (!existing) return { success: false, error: "Placement not found" };
 
     const updates = {};
-    if (Object.hasOwn(placementData, "package_lpa")) {
-      const result = parseOptionalPackage(placementData.package_lpa);
-      if (result.error) return { success: false, error: result.error };
-      updates.package_lpa = result.value;
-    }
-    if (Object.hasOwn(placementData, "offer_status")) {
-      if (typeof placementData.offer_status !== "string" || !OFFER_STATUSES.includes(placementData.offer_status)) {
-        return { success: false, error: "Choose a valid offer status" };
-      }
-      updates.offer_status = placementData.offer_status;
+    if (Object.hasOwn(placementData, "package_lpa") || Object.hasOwn(placementData, "offer_status")) {
+      return { success: false, error: "Offer terms and status cannot be changed from a placement record" };
     }
     if (Object.hasOwn(placementData, "placement_date")) {
       const result = parseOptionalDate(placementData.placement_date, "Placement date");
@@ -190,14 +169,6 @@ export async function createPlacement(applicationId, placementData = {}) {
       return { success: false, error: "Placement details are invalid" };
     }
 
-    const packageResult = parseOptionalPackage(placementData.package_lpa);
-    if (packageResult.error) return { success: false, error: packageResult.error };
-    const offerStatus = Object.hasOwn(placementData, "offer_status")
-      ? placementData.offer_status
-      : "offered";
-    if (typeof offerStatus !== "string" || !OFFER_STATUSES.includes(offerStatus)) {
-      return { success: false, error: "Choose a valid offer status" };
-    }
     const placementDate = parseOptionalDate(placementData.placement_date, "Placement date");
     if (placementDate.error) return { success: false, error: placementDate.error };
     const joiningDate = parseOptionalDate(placementData.joining_date, "Joining date");
@@ -210,7 +181,7 @@ export async function createPlacement(applicationId, placementData = {}) {
         status,
         student_id,
         drive_id,
-        student_profiles ( id ),
+        student_profiles ( id, profile_id ),
         placement_drives (
           id,
           title,
@@ -223,7 +194,20 @@ export async function createPlacement(applicationId, placementData = {}) {
     if (applicationError) return { success: false, error: "Could not verify the application" };
     if (!application) return { success: false, error: "Application not found" };
     if (application.status !== "selected") {
-      return { success: false, error: "A placement can only be created for a selected applicant" };
+      return { success: false, error: "A placement requires a selected applicant" };
+    }
+
+    const { data: acceptedOffer, error: offerError } = await supabase
+      .from("placement_offers")
+      .select("application_id, student_id, drive_id, offered_ctc, is_accepted")
+      .eq("application_id", application.id)
+      .maybeSingle();
+    if (offerError) return { success: false, error: "Could not verify the accepted offer" };
+    const applicantProfile = firstRelation(application.student_profiles);
+    if (!acceptedOffer || acceptedOffer.is_accepted !== true
+      || acceptedOffer.student_id !== applicantProfile?.profile_id
+      || acceptedOffer.drive_id !== application.drive_id) {
+      return { success: false, error: "A placement requires an accepted offer for this application" };
     }
 
     const studentProfile = firstRelation(application.student_profiles);
@@ -241,35 +225,25 @@ export async function createPlacement(applicationId, placementData = {}) {
 
     const { data: existingPlacement, error: placementLookupError } = await supabase
       .from("placements")
-      .select("id")
+      .select(PLACEMENT_FIELDS)
       .eq("application_id", application.id)
       .maybeSingle();
     if (placementLookupError) return { success: false, error: "Could not check for an existing placement" };
-    if (existingPlacement) {
-      return { success: false, error: "A placement already exists for this application" };
+    if (!existingPlacement) return { success: false, error: "Accepting the offer creates the placement automatically" };
+    if (existingPlacement.student_id !== studentProfile.id
+      || existingPlacement.drive_id !== drive.id
+      || existingPlacement.offer_status !== "accepted"
+      || Number(existingPlacement.package_lpa) !== Number(acceptedOffer.offered_ctc)) {
+      return { success: false, error: "The placement does not match its accepted offer" };
     }
 
-    const { data: placement, error: insertError } = await supabase
-      .from("placements")
-      .insert({
-        application_id: application.id,
-        student_id: studentProfile.id,
-        drive_id: drive.id,
-        company_id: company.id,
-        job_title: drive.title,
-        package_lpa: packageResult.value,
-        offer_status: offerStatus,
-        placement_date: placementDate.value,
-        joining_date: joiningDate.value,
-      })
-      .select("id, application_id, student_id, drive_id, company_id, job_title, package_lpa, offer_status, placement_date, joining_date, created_at")
-      .single();
-    if (insertError) {
-      if (insertError.code === "23505") {
-        return { success: false, error: "A placement already exists for this application" };
-      }
-      return { success: false, error: "Could not create placement" };
-    }
+    const updates = {};
+    if (Object.hasOwn(placementData, "placement_date")) updates.placement_date = placementDate.value;
+    if (Object.hasOwn(placementData, "joining_date")) updates.joining_date = joiningDate.value;
+    const { data: placement, error: updateError } = Object.keys(updates).length
+      ? await supabase.from("placements").update(updates).eq("id", existingPlacement.id).select(PLACEMENT_FIELDS).single()
+      : { data: existingPlacement, error: null };
+    if (updateError) return { success: false, error: "Could not update placement dates" };
 
     revalidatePath(`/admin/opportunities/${drive.id}/applicants`);
     return { success: true, data: placement };
