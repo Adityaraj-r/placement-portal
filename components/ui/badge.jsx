@@ -41,4 +41,39 @@ function Badge({
   );
 }
 
-export { Badge, badgeVariants }
+const workflowStatusStyles = {
+  draft: "border-border bg-muted text-muted-foreground",
+  published: "border-primary/25 bg-primary/10 text-primary",
+  in_progress: "border-primary/25 bg-primary/10 text-primary",
+  completed: "border-border bg-secondary text-secondary-foreground",
+  cancelled: "border-destructive/30 bg-destructive/10 text-destructive",
+  applied: "border-primary/25 bg-primary/10 text-primary",
+  eligible: "border-border bg-secondary text-secondary-foreground",
+  ineligible: "border-destructive/30 bg-destructive/10 text-destructive",
+  shortlisted: "border-primary/25 bg-primary/10 text-primary",
+  selected: "border-primary/25 bg-primary/10 text-primary",
+  rejected: "border-destructive/30 bg-destructive/10 text-destructive",
+  offered: "border-border bg-secondary text-secondary-foreground",
+  accepted: "border-primary/25 bg-primary/10 text-primary",
+};
+
+function StatusBadge({ status, className }) {
+  if (!status) return null;
+  const value = String(status);
+  const label = value.replaceAll("_", " ");
+
+  return (
+    <Badge
+      variant="outline"
+      className={cn(
+        "max-w-full whitespace-normal break-words text-center capitalize leading-4",
+        workflowStatusStyles[value.toLowerCase()] || "border-border bg-secondary text-secondary-foreground",
+        className,
+      )}
+    >
+      {label}
+    </Badge>
+  );
+}
+
+export { Badge, StatusBadge, badgeVariants }

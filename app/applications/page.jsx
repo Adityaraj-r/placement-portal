@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/supabaseClient";
 import { getMyApplications } from "@/app/actions/applications.actions";
 import { respondToPlacementOffer } from "@/app/actions/lifecycle.actions";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Briefcase, Building2, Calendar, FileText } from "lucide-react";
 import { toast } from "sonner";
@@ -146,8 +146,8 @@ export default function MyApplicationsPage() {
                     <CardContent className="px-6 py-5">
                       <div className="space-y-4">
                         {/* Header */}
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1 min-w-0">
+                        <div className="flex min-w-0 flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+                          <div className="min-w-0 flex-1">
                             <div className="mb-1 flex items-center gap-2">
                               <Briefcase
                                 size={18}
@@ -162,18 +162,7 @@ export default function MyApplicationsPage() {
                               <span>{company?.name || "Unknown Company"}</span>
                             </div>
                           </div>
-                          <Badge
-                            variant={
-                              app.status === "shortlisted"
-                                ? "default"
-                                : app.status === "rejected"
-                                ? "destructive"
-                                : "secondary"
-                            }
-                            className="shrink-0"
-                          >
-                            {app.status || "applied"}
-                          </Badge>
+                          <StatusBadge status={app.status || "applied"} className="self-start sm:shrink-0" />
                         </div>
 
                         {/* Opportunity Details */}
@@ -236,9 +225,9 @@ export default function MyApplicationsPage() {
                         )}
 
                         {app.interview && (
-                          <section className="space-y-1 border-t border-slate-100 pt-3 text-sm">
+                          <section className="space-y-2 border-t border-border pt-4 text-sm">
                             <h4 className="font-semibold">Interview</h4>
-                            <p>Status: {app.interview.status}</p>
+                            <p className="flex flex-wrap items-center gap-2"><span>Status:</span><StatusBadge status={app.interview.status} /></p>
                             <p>When: {new Date(app.interview.scheduled_at).toLocaleString()}</p>
                             <p>Mode: {app.interview.mode}</p>
                             {app.interview.location && <p>Location / link: {app.interview.location}</p>}
@@ -247,16 +236,16 @@ export default function MyApplicationsPage() {
                         )}
 
                         {app.offer && (
-                          <section className="space-y-2 border-t border-slate-100 pt-3 text-sm">
+                          <section className="space-y-2 border-t border-border pt-4 text-sm">
                             <h4 className="font-semibold">Offer</h4>
                             <p>Package: {app.offer.offered_ctc} LPA</p>
-                            <p>Status: {app.offer.is_accepted === null ? "offered" : app.offer.is_accepted ? "accepted" : "rejected"}</p>
+                            <p className="flex flex-wrap items-center gap-2"><span>Status:</span><StatusBadge status={app.offer.is_accepted === null ? "offered" : app.offer.is_accepted ? "accepted" : "rejected"} /></p>
                             {app.offer.is_accepted === null && (
-                              <div className="flex gap-2">
-                                <Button size="sm" disabled={respondingOfferId === app.offer.id} onClick={() => handleOfferResponse(app.offer.id, true)}>
+                              <div className="flex flex-wrap gap-2 pt-1">
+                                <Button size="sm" className="min-w-28" disabled={respondingOfferId === app.offer.id} onClick={() => handleOfferResponse(app.offer.id, true)}>
                                   {respondingOfferId === app.offer.id ? "Saving…" : "Accept offer"}
                                 </Button>
-                                <Button size="sm" variant="outline" disabled={respondingOfferId === app.offer.id} onClick={() => handleOfferResponse(app.offer.id, false)}>
+                                <Button size="sm" variant="destructive" className="min-w-28" disabled={respondingOfferId === app.offer.id} onClick={() => handleOfferResponse(app.offer.id, false)}>
                                   Reject offer
                                 </Button>
                               </div>
@@ -265,25 +254,21 @@ export default function MyApplicationsPage() {
                         )}
 
                         {app.placement && (
-                          <section className="space-y-1 border-t border-slate-100 pt-3 text-sm">
+                          <section className="space-y-2 border-t border-border pt-4 text-sm">
                             <h4 className="font-semibold">Placement</h4>
-                            <p>{app.placement.job_title} · {app.placement.offer_status}</p>
+                            <p className="flex flex-wrap items-center gap-2"><span>{app.placement.job_title}</span><StatusBadge status={app.placement.offer_status} /></p>
                             {app.placement.placement_date && <p>Placement date: {app.placement.placement_date}</p>}
                             {app.placement.joining_date && <p>Joining date: {app.placement.joining_date}</p>}
                           </section>
                         )}
 
                         {/* Footer */}
-                          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
+                          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-4">
                           <div className="flex items-center gap-2 text-xs text-slate-500">
                             <FileText size={12} />
                             <span>Applied on {formatDate(app.applied_at)}</span>
                           </div>
-                          {drive?.status && (
-                            <Badge variant="outline" className="text-xs">
-                              {drive.status}
-                            </Badge>
-                          )}
+                          {drive?.status && <StatusBadge status={drive.status} className="text-xs" />}
                         </div>
                       </div>
                     </CardContent>

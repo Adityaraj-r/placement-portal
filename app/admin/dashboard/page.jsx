@@ -56,13 +56,13 @@ export default function DashboardPage() {
         {stats.map((stat, i) => (
           <Card
             key={i}
-            className="border-border bg-card transition-shadow hover:shadow-md"
+            className="border-border border-t-2 border-t-primary/50 bg-card transition-shadow hover:shadow-md"
           >
-            <CardContent className="px-6 py-6 space-y-2">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <CardContent className="space-y-3 px-5 py-5 sm:px-6 sm:py-6">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 {stat.title}
               </p>
-              <p className="text-3xl font-semibold tracking-tight text-primary">
+              <p className="text-4xl font-semibold tabular-nums tracking-tight text-foreground">
                 {stat.value}
               </p>
             </CardContent>

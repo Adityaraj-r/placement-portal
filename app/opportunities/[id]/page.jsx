@@ -12,6 +12,7 @@ import PageHeader from "@/components/PageHeader";
 import { LoadingState } from "@/components/ui/loading-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { EmptyState } from "@/components/ui/empty-state";
+import { StatusBadge } from "@/components/ui/badge";
 
 export default function OpportunityDetailsPage() {
   const { id } = useParams();
@@ -89,15 +90,15 @@ export default function OpportunityDetailsPage() {
       <Link href="/opportunities" className="text-sm font-medium text-primary hover:underline">← Published drives</Link>
       <PageHeader title={drive.title} description={drive.company_name} />
       <Card>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-5 p-5 sm:space-y-6 sm:p-6">
           {drive.description && <section className="space-y-2"><h2 className="font-semibold">Role details</h2><p className="whitespace-pre-wrap text-sm leading-6 text-foreground/85">{drive.description}</p></section>}
-          <section className="grid gap-4 sm:grid-cols-2">
-            <p><span className="font-medium">Company: </span>{drive.company_name}</p>
-            {drive.companies?.industry && <p><span className="font-medium">Industry: </span>{drive.companies.industry}</p>}
-            {drive.location && <p><span className="font-medium">Location: </span>{drive.location}</p>}
-            {drive.companies?.website && <p><span className="font-medium">Website: </span><a className="text-primary underline" href={drive.companies.website} target="_blank" rel="noreferrer">{drive.companies.website}</a></p>}
-            {drive.package_lpa != null && <p><span className="font-medium">Package: </span>{drive.package_lpa} LPA</p>}
-            <p><span className="font-medium">Registration deadline: </span>{new Date(drive.registration_deadline).toLocaleString()}</p>
+          <section className="grid gap-4 border-y border-border py-4 sm:grid-cols-2 sm:py-5">
+            <div className="space-y-1"><p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Drive status</p><StatusBadge status={drive.status} /></div>
+            <div className="space-y-1"><p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Registration deadline</p><p className="text-sm font-medium text-foreground">{new Date(drive.registration_deadline).toLocaleString()}</p></div>
+            {drive.companies?.industry && <p className="text-sm"><span className="font-medium">Industry: </span>{drive.companies.industry}</p>}
+            {drive.location && <p className="text-sm"><span className="font-medium">Location: </span>{drive.location}</p>}
+            {drive.companies?.website && <p className="min-w-0 break-all text-sm"><span className="font-medium">Website: </span><a className="text-primary underline" href={drive.companies.website} target="_blank" rel="noreferrer">{drive.companies.website}</a></p>}
+            {drive.package_lpa != null && <p className="text-sm"><span className="font-medium">Package: </span>{drive.package_lpa} LPA</p>}
           </section>
           <section className="space-y-2 border-t pt-4">
             <h2 className="font-semibold">Eligibility</h2>
@@ -107,9 +108,9 @@ export default function OpportunityDetailsPage() {
               {` · Maximum backlogs ${drive.max_backlogs ?? 0}`}
             </p>
           </section>
-          <section className="space-y-3 border-t pt-4" aria-live="polite">
+          <section className="space-y-3 rounded-lg bg-muted/40 p-4 sm:p-5" aria-live="polite">
             {applicationCheck?.applicationStatus ? (
-              <p className="font-medium">Your application status: {applicationCheck.applicationStatus}</p>
+              <p className="flex flex-wrap items-center gap-2 font-medium"><span>Your application status:</span><StatusBadge status={applicationCheck.applicationStatus} /></p>
             ) : applicationCheck?.eligible ? (
               <p className="text-sm text-green-700">Your profile meets the listed eligibility requirements.</p>
             ) : (
@@ -120,10 +121,10 @@ export default function OpportunityDetailsPage() {
                 ) : null}
               </div>
             )}
-            <Button onClick={handleApply} disabled={!applicationCheck?.eligible || submitting}>
+            <Button className="w-full sm:w-auto" onClick={handleApply} disabled={!applicationCheck?.eligible || submitting}>
               {submitting ? "Submitting…" : "Apply to this drive"}
             </Button>
-            <Link className="ml-3 text-sm text-primary underline" href="/applications">My Applications</Link>
+            <Link className="block text-center text-sm text-primary underline sm:ml-3 sm:inline" href="/applications">My Applications</Link>
           </section>
         </CardContent>
       </Card>

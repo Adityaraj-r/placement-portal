@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/badge";
 import PageHeader from "@/components/PageHeader";
 import { useEffect, useMemo, useState } from "react";
 import { getApplicantsByDrive, updateApplicationStatus } from "@/app/actions/applications.actions";
@@ -324,15 +324,7 @@ export default function ApplicantsPage() {
                     Status
                   </Label>
                   <div className="mt-1.5">
-                    <Badge
-                      variant={
-                        opportunity.status === "published"
-                          ? "default"
-                          : "secondary"
-                      }
-                    >
-                      {opportunity.status}
-                    </Badge>
+                    <StatusBadge status={opportunity.status} />
                   </div>
                 </div>
 
@@ -388,7 +380,7 @@ export default function ApplicantsPage() {
               <SelectItem value="all">All statuses</SelectItem>
               {APPLICATION_STATUSES.map((status) => (
                 <SelectItem key={status} value={status}>
-                  {status.charAt(0).toUpperCase() + status.slice(1)}
+                  {status.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase())}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -397,8 +389,8 @@ export default function ApplicantsPage() {
 
         {loadingApplicants ? <LoadingState label="Loading applicants">
           <div className="overflow-hidden rounded-xl border border-border bg-card p-4 sm:p-5"><div className="space-y-3" aria-hidden="true">{[0, 1, 2, 3].map((row) => <div key={row} className="grid grid-cols-2 gap-3 sm:grid-cols-4"><div className="h-4 animate-pulse rounded bg-muted" /><div className="h-4 animate-pulse rounded bg-muted" /><div className="hidden h-4 animate-pulse rounded bg-muted sm:block" /><div className="hidden h-4 animate-pulse rounded bg-muted sm:block" /></div>)}</div></div>
-        </LoadingState> : applicantsLoadFailed ? <ErrorState title="Unable to load applicants" description="Something went wrong while retrieving applications for this placement drive." /> : applicants.length === 0 ? <EmptyState title="No applications yet" description="No students have applied to this placement drive yet." /> : <div className="overflow-x-auto rounded-xl border border-border bg-card">
-          <Table>
+        </LoadingState> : applicantsLoadFailed ? <ErrorState title="Unable to load applicants" description="Something went wrong while retrieving applications for this placement drive." /> : applicants.length === 0 ? <EmptyState title="No applications yet" description="No students have applied to this placement drive yet." /> : <div className="min-w-0 overflow-hidden rounded-xl border border-border bg-card">
+          <Table className="min-w-[1120px]" containerProps={{ role: "region", tabIndex: 0, "aria-label": "Applicants table" }}>
             <TableHeader>
               <TableRow className="bg-muted/50">
                 <TableHead className="font-semibold">Name</TableHead>
@@ -420,10 +412,10 @@ export default function ApplicantsPage() {
               const placement = lifecycle.placements.find((item) => item.application_id === app.id);
               return (
                 <TableRow key={app.id}>
-                  <TableCell className="font-medium">
+                  <TableCell className="min-w-40 font-medium">
                     {app.profiles?.name || "-"}
                   </TableCell>
-                  <TableCell>{app.profiles?.email || "-"}</TableCell>
+                  <TableCell className="min-w-56 text-muted-foreground">{app.profiles?.email || "-"}</TableCell>
                   <TableCell>{app.profiles?.college || "-"}</TableCell>
                   <TableCell>{app.profiles?.branch || "-"}</TableCell>
                   <TableCell>
@@ -446,36 +438,36 @@ export default function ApplicantsPage() {
                         onValueChange={(status) => handleStatusChange(app.id, status)}
                         disabled={updatingApplicationId === app.id}
                       >
-                        <SelectTrigger className="w-36" aria-label={`Application status for ${app.profiles?.name || "applicant"}`}>
+                        <SelectTrigger className="w-36" aria-label={`Change application status for ${app.profiles?.name || "applicant"}`}>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value={app.status} disabled>Current: {app.status}</SelectItem>
+                          <SelectItem value={app.status} disabled>Current: {app.status?.replaceAll("_", " ")}</SelectItem>
                           {applicationTransitions(app.status).map((status) => (
-                            <SelectItem key={status} value={status}>
-                              {status.charAt(0).toUpperCase() + status.slice(1)}
+                            <SelectItem key={status} value={status} className={status === "rejected" ? "text-destructive focus:text-destructive" : ""}>
+                              {status.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase())}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
-                    ) : <Badge variant="secondary">{app.status}</Badge>}
+                    ) : <StatusBadge status={app.status} />}
                   </TableCell>
                   <TableCell>
                     {interview ? (
                       <div className="space-y-1">
-                        <p className="text-xs">Interview: {interview.status}</p>
-                        {offer ? <p className="text-xs">Offer: {offer.is_accepted === null ? "offered" : offer.is_accepted ? "accepted" : "rejected"}</p> : null}
+                        <p className="flex flex-wrap items-center gap-1.5 text-xs"><span>Interview:</span><StatusBadge status={interview.status} /></p>
+                        {offer ? <p className="flex flex-wrap items-center gap-1.5 text-xs"><span>Offer:</span><StatusBadge status={offer.is_accepted === null ? "offered" : offer.is_accepted ? "accepted" : "rejected"} /></p> : null}
                         {placement ? <p className="text-xs">Placement recorded</p> : null}
-                        <Button variant="outline" size="sm" onClick={() => openApplicantReview(app)}>Manage lifecycle</Button>
+                        <Button size="sm" className="mt-2 w-full sm:w-auto" onClick={() => openApplicantReview(app)}>Manage lifecycle</Button>
                       </div>
                     ) : app.status === "shortlisted" || app.status === "selected" ? (
-                      <Button variant="outline" size="sm" onClick={() => openApplicantReview(app)}>
+                      <Button size="sm" onClick={() => openApplicantReview(app)}>
                         {app.status === "shortlisted" ? "Schedule interview" : "Create offer"}
                       </Button>
                     ) : <span className="text-xs text-muted-foreground">Available after shortlist</span>}
                   </TableCell>
                   <TableCell>
-                    <Button variant="outline" size="sm" onClick={() => openApplicantReview(app)}>
+                    <Button variant="outline" size="sm" className="whitespace-normal" onClick={() => openApplicantReview(app)}>
                       Details
                     </Button>
                   </TableCell>
@@ -483,6 +475,7 @@ export default function ApplicantsPage() {
                     <Button
                       variant="outline"
                       size="sm"
+                      className="whitespace-normal"
                       disabled={!app.student_id || openingResumeId === app.student_id}
                       onClick={() => handleViewResume(app.student_id)}
                     >
@@ -512,7 +505,7 @@ export default function ApplicantsPage() {
       </section>
 
       <Dialog open={Boolean(selectedApplicant)} onOpenChange={(open) => { if (!open) setSelectedApplicant(null); }}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-h-[85dvh] w-[calc(100%-1rem)] max-w-2xl overflow-y-auto p-4 sm:p-6">
           {selectedApplicant && (
             <>
               <DialogHeader>
@@ -530,9 +523,9 @@ export default function ApplicantsPage() {
                   ["Application status", selectedApplicant.status],
                   ["Applied date", formatDate(selectedApplicant.applied_at)],
                 ].map(([label, value]) => (
-                  <div key={label}>
+                  <div key={label} className="min-w-0">
                     <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</dt>
-                    <dd className="mt-1 text-foreground">{value ?? "-"}</dd>
+                    <dd className="mt-1 break-words text-foreground">{label === "Application status" && value ? <StatusBadge status={value} /> : value ?? "-"}</dd>
                   </div>
                 ))}
                 <div className="sm:col-span-2">
@@ -548,7 +541,7 @@ export default function ApplicantsPage() {
                 <h3 className="font-semibold">Interview</h3>
                 {selectedInterview ? (
                   <div className="space-y-1 text-sm">
-                    <p>Status: {selectedInterview.status}</p>
+                    <p className="flex flex-wrap items-center gap-2"><span>Status:</span><StatusBadge status={selectedInterview.status} /></p>
                     <p>{new Date(selectedInterview.scheduled_at).toLocaleString()} · {selectedInterview.mode}</p>
                     {selectedInterview.location && <p>{selectedInterview.location}</p>}
                     {selectedInterview.details && <p>{selectedInterview.details}</p>}
@@ -571,9 +564,11 @@ export default function ApplicantsPage() {
                     <Input id="interview-location" maxLength={500} value={interviewForm.location} onChange={(event) => setInterviewForm((value) => ({ ...value, location: event.target.value }))} />
                     <Label htmlFor="interview-details">Details</Label>
                     <Input id="interview-details" maxLength={2000} value={interviewForm.details} onChange={(event) => setInterviewForm((value) => ({ ...value, details: event.target.value }))} />
-                    <Button type="submit" disabled={savingLifecycle}>{selectedInterview ? "Update interview" : "Schedule interview"}</Button>
-                    {selectedInterview && <Button type="button" variant="outline" disabled={savingLifecycle} onClick={() => handleInterviewTransition(selectedInterview, "completed")}>Mark completed</Button>}
-                    {selectedInterview && <Button type="button" variant="outline" disabled={savingLifecycle} onClick={() => handleInterviewTransition(selectedInterview, "cancelled")}>Cancel interview</Button>}
+                    <div className="flex flex-wrap gap-2">
+                      <Button type="submit" disabled={savingLifecycle}>{selectedInterview ? "Update interview" : "Schedule interview"}</Button>
+                      {selectedInterview && <Button type="button" variant="outline" disabled={savingLifecycle} onClick={() => handleInterviewTransition(selectedInterview, "completed")}>Mark completed</Button>}
+                      {selectedInterview && <Button type="button" variant="destructive" disabled={savingLifecycle} onClick={() => handleInterviewTransition(selectedInterview, "cancelled")}>Cancel interview</Button>}
+                    </div>
                   </form>
                 ) : null}
                 {selectedInterview?.status === "completed" ? (
@@ -588,11 +583,11 @@ export default function ApplicantsPage() {
                       <SelectTrigger id="evaluation-recommendation"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="select">Select</SelectItem>
-                        <SelectItem value="reject">Reject</SelectItem>
+                      <SelectItem value="reject" className="text-destructive focus:text-destructive">Reject</SelectItem>
                         <SelectItem value="undecided">Undecided</SelectItem>
                       </SelectContent>
                     </Select>
-                    <Button type="submit" disabled={savingLifecycle}>{selectedEvaluation ? "Update evaluation" : "Save evaluation"}</Button>
+                    <Button type="submit" className="w-full sm:w-auto" disabled={savingLifecycle}>{selectedEvaluation ? "Update evaluation" : "Save evaluation"}</Button>
                   </form>
                 ) : null}
                 {selectedInterview && selectedApplicant.status === "shortlisted" && !selectedEvaluation && selectedInterview.status !== "completed" ? (
@@ -604,14 +599,14 @@ export default function ApplicantsPage() {
                 <div className="space-y-3 border-t pt-4">
                   <h3 className="font-semibold">Offer</h3>
                   {selectedOffer ? (
-                    <p className="text-sm">{selectedOffer.offered_ctc} LPA · {selectedOffer.is_accepted === null ? "offered" : selectedOffer.is_accepted ? "accepted" : "rejected"}</p>
+                    <div className="flex flex-wrap items-center gap-2 text-sm"><span>{selectedOffer.offered_ctc} LPA</span><span aria-hidden="true">·</span><StatusBadge status={selectedOffer.is_accepted === null ? "offered" : selectedOffer.is_accepted ? "accepted" : "rejected"} /></div>
                   ) : (
-                    <form className="flex items-end gap-3" onSubmit={handleCreateOffer}>
+                    <form className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-end" onSubmit={handleCreateOffer}>
                       <div className="flex-1 space-y-2">
                         <Label htmlFor="offer-ctc">Offer package (LPA)</Label>
                         <Input id="offer-ctc" type="number" min="0.01" step="0.01" required value={offerAmount} onChange={(event) => setOfferAmount(event.target.value)} />
                       </div>
-                      <Button type="submit" disabled={savingLifecycle}>Create offer</Button>
+                      <Button type="submit" className="w-full sm:w-auto" disabled={savingLifecycle}>Create offer</Button>
                     </form>
                   )}
                   {selectedPlacement && <p className="text-sm text-green-700">Placement record created after offer acceptance.</p>}

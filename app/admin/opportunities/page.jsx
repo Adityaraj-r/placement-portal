@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { useEffect, useState } from "react";
 import { getAllOpportunities } from "@/app/actions/opportunities.actions";
@@ -58,25 +58,14 @@ export default function OpportunitiesPage() {
             <CardContent className="px-6 py-5">
               <div className="space-y-4">
                 {/* Header */}
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
+                <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-primary">{opp?.company_name}</p>
                     <h2 className="text-lg font-semibold tracking-tight text-foreground">
                       {opp?.role}
                     </h2>
-                    <p className="mt-1 text-sm font-medium text-primary">
-                      {opp?.company_name}
-                    </p>
                   </div>
-                  <Badge
-                    variant={
-                      opp?.status === "published"
-                        ? "default"
-                        : "secondary"
-                    }
-                    className="shrink-0"
-                  >
-                    {opp?.status}
-                  </Badge>
+                  {opp?.status ? <StatusBadge status={opp.status} className="max-w-32" /> : null}
                 </div>
 
                 {/* Description */}
@@ -118,13 +107,13 @@ export default function OpportunitiesPage() {
                 </div>
 
                 {/* Actions */}
-                <div className="flex items-center gap-2 pt-2">
-                  <Link href={`/admin/opportunities/${opp.id}/applicants`} className="flex-1">
-                    <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white" size="sm">
+                <div className="flex flex-col gap-2 border-t border-border pt-4 sm:flex-row">
+                  <Link href={`/admin/opportunities/${opp.id}/applicants`} className="w-full sm:flex-1">
+                    <Button className="w-full" size="sm">
                       View applications
                     </Button>
                   </Link>
-                  <Link href={`/admin/opportunities/${opp.id}/edit`}>
+                  <Link href={`/admin/opportunities/${opp.id}/edit`} className="w-full sm:w-auto">
                     <Button className="w-full" variant="outline" size="sm">
                       Configure drive
                     </Button>

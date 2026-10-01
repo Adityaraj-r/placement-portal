@@ -7,6 +7,7 @@ import PageHeader from "@/components/PageHeader";
 import { LoadingState } from "@/components/ui/loading-state";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
+import { StatusBadge } from "@/components/ui/badge";
 
 export default function PlacementsPage() {
   const [placements, setPlacements] = useState([]);
@@ -37,13 +38,31 @@ export default function PlacementsPage() {
         <div className="grid gap-4">
           {placements.map((placement) => (
             <Card key={placement.id} className="border-border bg-card">
-              <CardContent className="grid gap-2 p-5 text-sm sm:grid-cols-2">
-                <p><span className="font-medium">Student:</span> {placement.student?.full_name || placement.student?.email || "-"}</p>
-                <p><span className="font-medium">Company:</span> {placement.company?.name || "-"}</p>
-                <p><span className="font-medium">Role:</span> {placement.job_title || placement.drive?.title || "-"}</p>
-                <p><span className="font-medium">Package:</span> {placement.package_lpa ?? "-"} LPA</p>
-                <p><span className="font-medium">Status:</span> {placement.offer_status || "accepted"}</p>
-                <p><span className="font-medium">Joining date:</span> {placement.joining_date || "-"}</p>
+              <CardContent className="grid gap-x-8 gap-y-5 p-5 text-sm sm:grid-cols-2 sm:p-6">
+                <div className="min-w-0 space-y-1 border-b border-border pb-4 sm:border-0 sm:pb-0">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Student</p>
+                  <p className="break-words font-semibold text-foreground">{placement.student?.full_name || placement.student?.email || "-"}</p>
+                </div>
+                <div className="min-w-0 space-y-1 border-b border-border pb-4 sm:border-0 sm:pb-0">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Company</p>
+                  <p className="break-words font-semibold text-foreground">{placement.company?.name || "-"}</p>
+                </div>
+                <div className="min-w-0 space-y-1">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Role</p>
+                  <p className="break-words text-foreground">{placement.job_title || placement.drive?.title || "-"}</p>
+                </div>
+                <div className="min-w-0 space-y-1">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Package</p>
+                  <p className="text-foreground">{placement.package_lpa ?? "-"} LPA</p>
+                </div>
+                <div className="min-w-0 space-y-1">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Offer status</p>
+                  <StatusBadge status={placement.offer_status || "accepted"} />
+                </div>
+                <div className="min-w-0 space-y-1">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Joining date</p>
+                  <p className="text-foreground">{placement.joining_date || "-"}</p>
+                </div>
               </CardContent>
             </Card>
           ))}
