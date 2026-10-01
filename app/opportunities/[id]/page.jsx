@@ -9,28 +9,42 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import PageHeader from "@/components/PageHeader";
+import { LoadingState } from "@/components/ui/loading-state";
+import { ErrorState } from "@/components/ui/error-state";
+import { EmptyState } from "@/components/ui/empty-state";
 
 export default function OpportunityDetailsPage() {
   const { id } = useParams();
   const router = useRouter();
   const [drive, setDrive] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [applicationCheck, setApplicationCheck] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     let active = true;
     async function load() {
-      const [result, eligibility] = await Promise.all([
-        getOpportunityById(id),
-        getMyApplicationEligibility(id),
-      ]);
-      if (!active) return;
-      if (result?.success && result.data?.status === "published") setDrive(result.data);
-      else setDrive(null);
-      if (eligibility?.success) setApplicationCheck(eligibility);
-      else setApplicationCheck({ eligible: false, error: eligibility?.error || "Could not check application eligibility" });
-      setLoading(false);
+      try {
+        const [result, eligibility] = await Promise.all([
+          getOpportunityById(id),
+          getMyApplicationEligibility(id),
+        ]);
+        if (!active) return;
+        if (result?.success && result.data?.status === "published") setDrive(result.data);
+        else {
+          setDrive(null);
+          if (result?.success === false && !result.error?.toLowerCase().includes("not found or unavailable")) {
+            setLoadFailed(true);
+          }
+        }
+        if (eligibility?.success) setApplicationCheck(eligibility);
+        else setApplicationCheck({ eligible: false, error: "Could not check application eligibility" });
+      } catch {
+        if (active) setLoadFailed(true);
+      } finally {
+        if (active) setLoading(false);
+      }
     }
     if (id) load();
     return () => { active = false; };
@@ -56,11 +70,15 @@ export default function OpportunityDetailsPage() {
     }
   }
 
-  if (loading) return <main className="mx-auto max-w-3xl p-8" aria-live="polite">Loading placement drive…</main>;
+  if (loading) return <main className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 sm:py-10"><LoadingState label="Loading placement opportunity"><div className="space-y-5 rounded-xl border border-border bg-card p-5 sm:p-6"><div className="h-7 w-2/3 animate-pulse rounded bg-muted" /><div className="h-4 w-1/3 animate-pulse rounded bg-muted" /><div className="h-36 animate-pulse rounded bg-muted" /></div></LoadingState></main>;
+  if (loadFailed) {
+    return <main className="mx-auto w-full max-w-4xl space-y-6 px-4 py-8 sm:px-6 sm:py-10"><PageHeader title="Opportunity unavailable" description="Placement opportunity details could not be loaded." /><ErrorState title="Unable to load this opportunity" description="Something went wrong while retrieving this placement opportunity." /><Button onClick={() => router.push("/opportunities")}>Back to published drives</Button></main>;
+  }
   if (!drive) {
     return (
       <main className="mx-auto w-full max-w-4xl space-y-6 px-4 py-8 sm:px-6 sm:py-10">
-        <PageHeader title="Placement drive unavailable" description="This drive may no longer be published." />
+        <PageHeader title="Placement opportunity unavailable" description="This opportunity may no longer be published." />
+        <EmptyState title="No placement opportunity found" description="This placement opportunity is unavailable or is no longer published." />
         <Button onClick={() => router.push("/opportunities")}>Back to published drives</Button>
       </main>
     );

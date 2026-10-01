@@ -12,6 +12,9 @@ import { createClient } from "@/lib/supabase/supabaseClient";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import PageHeader from "@/components/PageHeader";
+import { LoadingState } from "@/components/ui/loading-state";
+import { ErrorState } from "@/components/ui/error-state";
+import { EmptyState } from "@/components/ui/empty-state";
 
 export default function EditProfilePage() {
   const [profile, setProfile] = useState({});
@@ -105,14 +108,12 @@ export default function EditProfilePage() {
       <div className="mx-auto w-full max-w-3xl space-y-8">
         <PageHeader title="Edit Profile" description="Update your account and academic information." />
 
-        {profileLoadFailed && (
-          <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">
-            Your saved profile could not be loaded. Saving is disabled to protect your existing account details. Refresh the page or try again later.
-          </div>
-        )}
+        {profileLoading ? <LoadingState label="Loading your profile for editing"><Card><CardContent className="space-y-5 p-6"><div className="h-6 w-1/3 animate-pulse rounded bg-muted" />{[0, 1, 2, 3, 4, 5].map((item) => <div key={item} className="h-10 animate-pulse rounded bg-muted" />)}<div className="h-11 animate-pulse rounded bg-muted" /></CardContent></Card></LoadingState> : null}
+        {profileLoadFailed && <ErrorState title="Unable to load your profile" description="Your saved profile could not be loaded. Saving is disabled to protect your existing account details. Refresh the page or try again later." />}
+        {!profileLoading && !profileLoadFailed && profile.studentProfileExists === false ? <EmptyState title="Your student profile is not set up yet" description="Complete the form below to add your academic and profile information." /> : null}
 
         {/* Form Card */}
-        <Card className="border-border bg-card shadow-sm">
+        {!profileLoading && <Card className="border-border bg-card shadow-sm">
           <CardContent className="p-6 space-y-6">
 
             {/* Account details */}
@@ -242,7 +243,7 @@ export default function EditProfilePage() {
               {profileLoading ? "Loading profile..." : profileLoadFailed ? "Profile unavailable" : "Save Changes"}
             </Button>
           </CardContent>
-        </Card>
+        </Card>}
       </div>
     </div>
   );

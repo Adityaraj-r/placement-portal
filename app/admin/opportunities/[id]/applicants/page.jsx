@@ -43,6 +43,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { LoadingState } from "@/components/ui/loading-state";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ErrorState } from "@/components/ui/error-state";
 
 const APPLICATION_STATUSES = PHASE_3C_APPLICATION_STATUSES;
 
@@ -58,6 +61,7 @@ export default function ApplicantsPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedApplicant, setSelectedApplicant] = useState(null);
   const [loadingApplicants, setLoadingApplicants] = useState(true);
+  const [applicantsLoadFailed, setApplicantsLoadFailed] = useState(false);
   const [lifecycle, setLifecycle] = useState({ interviews: [], evaluations: [], offers: [], placements: [] });
   const [savingLifecycle, setSavingLifecycle] = useState(false);
   const [interviewForm, setInterviewForm] = useState({ scheduledAt: "", mode: "online", location: "", details: "" });
@@ -227,13 +231,17 @@ export default function ApplicantsPage() {
           getOpportunityById(id),
         ]);
         if (appsRes?.success) setApplicants(appsRes.data ?? []);
-        else toast.error(appsRes?.error || "Could not load applicants");
+        else {
+          setApplicantsLoadFailed(true);
+          toast.error("Could not load applicants");
+        }
         if (oppRes?.data) setOpportunity(oppRes.data);
-        else if (oppRes?.error) toast.error(oppRes.error);
+        else if (oppRes?.error) toast.error("Could not load placement drive details");
         const lifecycleRes = await getDriveLifecycle(id);
         if (lifecycleRes?.success) setLifecycle(lifecycleRes.data);
-        else toast.error(lifecycleRes?.error || "Could not load interview and offer details");
+        else toast.error("Could not load interview and offer details");
       } catch {
+        setApplicantsLoadFailed(true);
         toast.error("Could not load applicant information");
       } finally {
         setLoadingApplicants(false);
@@ -387,7 +395,9 @@ export default function ApplicantsPage() {
           </Select>
         </div>
 
-        <div className="overflow-hidden rounded-xl border border-border bg-card">
+        {loadingApplicants ? <LoadingState label="Loading applicants">
+          <div className="overflow-hidden rounded-xl border border-border bg-card p-4 sm:p-5"><div className="space-y-3" aria-hidden="true">{[0, 1, 2, 3].map((row) => <div key={row} className="grid grid-cols-2 gap-3 sm:grid-cols-4"><div className="h-4 animate-pulse rounded bg-muted" /><div className="h-4 animate-pulse rounded bg-muted" /><div className="hidden h-4 animate-pulse rounded bg-muted sm:block" /><div className="hidden h-4 animate-pulse rounded bg-muted sm:block" /></div>)}</div></div>
+        </LoadingState> : applicantsLoadFailed ? <ErrorState title="Unable to load applicants" description="Something went wrong while retrieving applications for this placement drive." /> : applicants.length === 0 ? <EmptyState title="No applications yet" description="No students have applied to this placement drive yet." /> : <div className="overflow-x-auto rounded-xl border border-border bg-card">
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/50">
@@ -497,7 +507,7 @@ export default function ApplicantsPage() {
             )}
           </TableBody>
         </Table>
-        </div>
+        </div>}
 
       </section>
 

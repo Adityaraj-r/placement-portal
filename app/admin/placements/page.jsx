@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import { getPlacements } from "@/app/actions/placement.actions";
 import { Card, CardContent } from "@/components/ui/card";
 import PageHeader from "@/components/PageHeader";
+import { LoadingState } from "@/components/ui/loading-state";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ErrorState } from "@/components/ui/error-state";
 
 export default function PlacementsPage() {
   const [placements, setPlacements] = useState([]);
@@ -28,8 +31,8 @@ export default function PlacementsPage() {
   return (
     <section className="w-full max-w-7xl space-y-8">
       <PageHeader title="Placements" description="Placement records created from accepted offers." />
-      {loading ? <p aria-live="polite">Loading placements…</p> : error ? <p role="alert">{error}</p> : placements.length === 0 ? (
-        <Card><CardContent className="p-6 text-sm text-muted-foreground">No accepted offers have created placement records yet.</CardContent></Card>
+      {loading ? <LoadingState label="Loading placements"><div className="grid gap-4" aria-hidden="true">{[0, 1, 2].map((item) => <Card key={item}><CardContent className="grid gap-3 p-5 sm:grid-cols-2">{[0, 1, 2, 3, 4, 5].map((line) => <div key={line} className="h-4 animate-pulse rounded bg-muted" />)}</CardContent></Card>)}</div></LoadingState> : error ? <ErrorState title="Unable to load placements" description="Something went wrong while retrieving placement records." /> : placements.length === 0 ? (
+        <EmptyState title="No placements recorded yet" description="Accepted offers have not created any placement records yet." />
       ) : (
         <div className="grid gap-4">
           {placements.map((placement) => (

@@ -8,17 +8,26 @@ import { Label } from "@/components/ui/label";
 import { useEffect, useState } from "react";
 import { getAllOpportunities } from "@/app/actions/opportunities.actions";
 import PageHeader from "@/components/PageHeader";
+import { LoadingState } from "@/components/ui/loading-state";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ErrorState } from "@/components/ui/error-state";
 
 export default function OpportunitiesPage() {
   const [opportunities, setOpportunities] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   useEffect(() => {
     async function getData() {
       try {
         const temp = await getAllOpportunities();
+        if (temp?.success === false) setLoadFailed(true);
         setOpportunities(temp.data ?? []);
       } catch (error) {
         console.log(error);
+        setLoadFailed(true);
+      } finally {
+        setLoading(false);
       }
     }
     getData();
@@ -38,7 +47,9 @@ export default function OpportunitiesPage() {
       />
 
       {/* List */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      {loading ? <LoadingState label="Loading placement drives">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">{[0, 1, 2, 3].map((item) => <Card key={item}><CardContent className="space-y-4 px-6 py-5"><div className="h-5 w-1/2 animate-pulse rounded bg-muted" /><div className="h-4 w-1/3 animate-pulse rounded bg-muted" /><div className="h-20 animate-pulse rounded bg-muted" /><div className="h-9 animate-pulse rounded bg-muted" /></CardContent></Card>)}</div>
+      </LoadingState> : loadFailed ? <ErrorState title="Unable to load placement drives" description="Something went wrong while retrieving placement drive data." /> : opportunities.length === 0 ? <EmptyState title="No placement drives yet" description="There are currently no placement drives to display." action={<Link href="/admin/opportunities/new"><Button className="font-medium">+ Create Drive</Button></Link>} /> : <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {opportunities.map((opp) => (
           <Card
             key={opp.id}
@@ -126,7 +137,7 @@ export default function OpportunitiesPage() {
             </CardContent>
           </Card>
         ))}
-      </div>
+      </div>}
     </div>
   );
 }

@@ -10,6 +10,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import PageHeader from "@/components/PageHeader";
+import { LoadingState } from "@/components/ui/loading-state";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ErrorState } from "@/components/ui/error-state";
 
 const EMPTY_COMPANY = {
   name: "",
@@ -34,15 +37,23 @@ export default function CompaniesPage() {
   const [company, setCompany] = useState(EMPTY_COMPANY);
   const [editingId, setEditingId] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const loadCompanies = useCallback(async () => {
-    const result = await getCompanies();
-    if (!result?.success) {
-      toast.error(result?.error || "Could not load companies");
-      return;
+    try {
+      const result = await getCompanies();
+      if (!result?.success) {
+        setLoadFailed(true);
+        toast.error("Could not load companies");
+        return;
+      }
+      setLoadFailed(false);
+      setCompanies(result.data ?? []);
+    } catch {
+      setLoadFailed(true);
+      toast.error("Could not load companies");
     }
-    setCompanies(result.data ?? []);
   }, []);
 
   useEffect(() => {
@@ -131,8 +142,8 @@ export default function CompaniesPage() {
 
         <section className="space-y-4" aria-label="Company list">
           {loading ? (
-            <p className="text-sm text-muted-foreground">Loading companies…</p>
-          ) : companies.length ? companies.map((item) => (
+            <LoadingState label="Loading companies" className="space-y-3">{[0, 1, 2].map((item) => <Card key={item}><CardContent className="space-y-3 p-5"><div className="h-5 w-1/3 animate-pulse rounded bg-muted" /><div className="h-4 w-2/3 animate-pulse rounded bg-muted" /><div className="h-4 w-1/2 animate-pulse rounded bg-muted" /></CardContent></Card>)}</LoadingState>
+          ) : loadFailed ? <ErrorState title="Unable to load companies" description="Something went wrong while retrieving company records." /> : companies.length ? companies.map((item) => (
                 <Card key={item.id} className="border-border bg-card">
               <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-start sm:justify-between">
                 <div className="flex min-w-0 gap-3">
@@ -153,9 +164,7 @@ export default function CompaniesPage() {
               </CardContent>
             </Card>
           )) : (
-            <Card>
-              <CardContent className="p-6 text-sm text-muted-foreground">No companies yet. Add one to use it when creating a placement drive.</CardContent>
-            </Card>
+            <EmptyState title="No companies available yet" description="Add a company to make it available when creating a placement drive." />
           )}
         </section>
       </div>

@@ -12,6 +12,9 @@ import { Briefcase, Building2, Calendar, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import PageHeader from "@/components/PageHeader";
+import { LoadingState } from "@/components/ui/loading-state";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ErrorState } from "@/components/ui/error-state";
 
 function formatDate(value) {
   if (!value) return "-";
@@ -26,6 +29,7 @@ export default function MyApplicationsPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [applications, setApplications] = useState([]);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [respondingOfferId, setRespondingOfferId] = useState(null);
 
   async function handleOfferResponse(offerId, accept) {
@@ -48,20 +52,26 @@ export default function MyApplicationsPage() {
 
   useEffect(() => {
     async function getData() {
-      const supabase = createClient();
-      const {
-        data: { user },
-        error,
-      } = await supabase.auth.getUser();
+      try {
+        const supabase = createClient();
+        const {
+          data: { user },
+          error,
+        } = await supabase.auth.getUser();
 
-      if (error || !user) {
-        router.replace("/login");
-        return;
+        if (error || !user) {
+          router.replace("/login");
+          return;
+        }
+
+        const appsRes = await getMyApplications();
+        if (appsRes?.success === false) setLoadFailed(true);
+        setApplications(appsRes?.data ?? []);
+      } catch {
+        setLoadFailed(true);
+      } finally {
+        setLoading(false);
       }
-
-      const appsRes = await getMyApplications();
-      setApplications(appsRes?.data ?? []);
-      setLoading(false);
     }
 
     getData();
@@ -86,6 +96,9 @@ export default function MyApplicationsPage() {
       <div className="mx-auto w-full max-w-5xl space-y-8">
         <PageHeader title="My Applications" description="Track the status of applications you’ve submitted." />
 
+        {loading ? <LoadingState label="Loading your applications">
+          <div className="space-y-6"><div className="grid grid-cols-1 gap-4 sm:grid-cols-3">{[0, 1, 2].map((item) => <Card key={item}><CardContent className="space-y-3 px-6 py-5"><div className="h-3 w-1/3 animate-pulse rounded bg-muted" /><div className="h-7 w-1/4 animate-pulse rounded bg-muted" /></CardContent></Card>)}</div><div className="space-y-4">{[0, 1].map((item) => <Card key={item}><CardContent className="space-y-3 p-5"><div className="h-5 w-1/2 animate-pulse rounded bg-muted" /><div className="h-4 w-1/3 animate-pulse rounded bg-muted" /><div className="h-16 animate-pulse rounded bg-muted" /></CardContent></Card>)}</div></div>
+        </LoadingState> : loadFailed ? <ErrorState title="Unable to load your applications" description="Something went wrong while retrieving your application records. Please try again later." /> : <>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <Card className="border-border bg-card">
             <CardContent className="px-6 py-5 space-y-1">
@@ -120,9 +133,7 @@ export default function MyApplicationsPage() {
         </div>
 
         <div className="space-y-4">
-          {loading ? (
-            <p className="text-sm text-muted-foreground">Loading…</p>
-          ) : hasApps ? (
+          {hasApps ? (
             <div className="grid grid-cols-1 gap-4">
               {applications.map((app) => {
                 const drive = app.placement_drives;
@@ -281,15 +292,10 @@ export default function MyApplicationsPage() {
               })}
             </div>
           ) : (
-            <Card className="border-border bg-card">
-              <CardContent className="px-6 py-6">
-                <p className="text-sm text-muted-foreground">
-                  You haven’t applied to any opportunities yet.
-                </p>
-              </CardContent>
-            </Card>
+            <EmptyState title="No applications yet" description="Applications will appear here after you apply to a placement opportunity." />
           )}
         </div>
+        </>}
       </div>
     </div>
   );

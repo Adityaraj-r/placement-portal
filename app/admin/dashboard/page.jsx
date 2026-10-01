@@ -4,6 +4,8 @@ import { getAllOpportunities } from "@/app/actions/opportunities.actions";
 import { getAllProfiles } from "@/app/actions/profile.actions";
 import { Card, CardContent } from "@/components/ui/card";
 import PageHeader from "@/components/PageHeader";
+import { LoadingState } from "@/components/ui/loading-state";
+import { ErrorState } from "@/components/ui/error-state";
 import { useEffect, useState } from "react";
 
 export default function DashboardPage() {
@@ -13,18 +15,29 @@ export default function DashboardPage() {
     { title: "Applications Submitted", value: 0 },
     { title: "Students Placed", value: 0 },
   ]);
+  const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
   useEffect(() => {
     async function getData() {
-      const opp = ((await getAllOpportunities())?.data?.length)
-      const stu = ((await getAllProfiles())?.data?.length)
-      const app = ((await getAllApplications())?.data?.length)
-      setStats([
-        { title: "Total Students", value: stu },
-        { title: "Total Opportunities", value: opp },
-        { title: "Applications Submitted", value: app },
-        { title: "Students Placed", value: 0 },
-      ])
-      console.log(stats)
+      try {
+        const opportunities = await getAllOpportunities();
+        const profiles = await getAllProfiles();
+        const applications = await getAllApplications();
+        const opp = opportunities?.data?.length;
+        const stu = profiles?.data?.length;
+        const app = applications?.data?.length;
+        setLoadFailed([opportunities, profiles, applications].some((result) => result?.success === false));
+        setStats([
+          { title: "Total Students", value: stu },
+          { title: "Total Opportunities", value: opp },
+          { title: "Applications Submitted", value: app },
+          { title: "Students Placed", value: 0 },
+        ]);
+      } catch {
+        setLoadFailed(true);
+      } finally {
+        setLoading(false);
+      }
     }
     getData()
   }, [])
@@ -34,7 +47,12 @@ export default function DashboardPage() {
       <PageHeader title="Dashboard" description="Overview of students, opportunities, and applications." />
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+      {loadFailed ? <ErrorState title="Unable to load dashboard data" description="Something went wrong while retrieving one or more dashboard totals." /> : null}
+      {loading ? <LoadingState label="Loading dashboard totals">
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          {stats.map((stat) => <Card key={stat.title}><CardContent className="space-y-3 px-6 py-6"><div className="h-3 w-2/3 animate-pulse rounded bg-muted" /><div className="h-8 w-1/3 animate-pulse rounded bg-muted" /></CardContent></Card>)}
+        </div>
+      </LoadingState> : !loadFailed ? <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat, i) => (
           <Card
             key={i}
@@ -50,7 +68,7 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         ))}
-      </div>
+      </div> : null}
     </div>
   );
 }

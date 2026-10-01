@@ -5,16 +5,22 @@ import { getResumeFeedback } from "./actions";
 import PageHeader from "@/components/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { LoadingState } from "@/components/ui/loading-state";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ErrorState } from "@/components/ui/error-state";
 
 export default function ResumeFeedbackPage() {
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState(null);
   const [error, setError] = useState("");
+  const [requestFailed, setRequestFailed] = useState(false);
+  const [hasRequestedFeedback, setHasRequestedFeedback] = useState(false);
 
   async function handleSubmit(e) {
     e.preventDefault();
     setLoading(true);
     setError("");
+    setRequestFailed(false);
     setFeedback(null);
 
     const formData = new FormData(e.target);
@@ -32,15 +38,16 @@ export default function ResumeFeedbackPage() {
       return;
     }
 
+    setHasRequestedFeedback(true);
     try {
       const result = await getResumeFeedback(formData);
       if (result?.error) {
-        setError(result.error);
+        setRequestFailed(true);
       } else {
         setFeedback(result);
       }
     } catch {
-      setError("Resume feedback could not be generated. Please try again.");
+      setRequestFailed(true);
     } finally {
       setLoading(false);
     }
@@ -68,7 +75,7 @@ export default function ResumeFeedbackPage() {
           </div>
 
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
+            <div role="alert" className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
               <strong>Error: </strong>
               <p className="text-sm mt-1">{error}</p>
             </div>
@@ -84,6 +91,10 @@ export default function ResumeFeedbackPage() {
         </form>
           </CardContent>
         </Card>
+
+        {loading ? <LoadingState label="Generating resume feedback"><Card><CardContent className="space-y-5 p-6"><div className="h-7 w-1/3 animate-pulse rounded bg-muted" /><div className="h-4 w-full animate-pulse rounded bg-muted" /><div className="h-24 animate-pulse rounded bg-muted" /><div className="h-24 animate-pulse rounded bg-muted" /></CardContent></Card></LoadingState> : null}
+        {requestFailed ? <ErrorState title="Unable to generate resume feedback" description="Feedback could not be generated from this resume. Please check the PDF and try again." /> : null}
+        {!loading && !feedback && !requestFailed && !error ? <EmptyState title={hasRequestedFeedback ? "No feedback result available" : "No resume feedback yet"} description={hasRequestedFeedback ? "No feedback was returned. You can submit your resume again to try once more." : "Upload a PDF resume above to receive feedback on skills and formatting."} /> : null}
 
         {/* Feedback Card  */}
         {feedback && (

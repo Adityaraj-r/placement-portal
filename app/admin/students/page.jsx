@@ -6,17 +6,26 @@ import { Badge } from "@/components/ui/badge";
 import { useEffect, useState } from "react";
 import { getAllProfiles } from "@/app/actions/profile.actions";
 import PageHeader from "@/components/PageHeader";
+import { LoadingState } from "@/components/ui/loading-state";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ErrorState } from "@/components/ui/error-state";
 
 export default function StudentsPage() {
   const [students, setStudents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   useEffect(() => {
     async function getData() {
       try {
         const temp = await getAllProfiles();
+        if (temp?.success === false) setLoadFailed(true);
         setStudents(temp.data ?? []);
       } catch (error) {
         console.log(error);
+        setLoadFailed(true);
+      } finally {
+        setLoading(false);
       }
     }
     getData();
@@ -44,7 +53,9 @@ export default function StudentsPage() {
     <div className="w-full max-w-7xl space-y-8">
       <PageHeader title="Students" description="Browse student profiles and academic information." />
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {loading ? <LoadingState label="Loading students">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">{[0, 1, 2].map((item) => <Card key={item}><CardContent className="space-y-5 px-6 py-5"><div className="h-14 w-14 animate-pulse rounded-full bg-muted" /><div className="h-4 w-2/3 animate-pulse rounded bg-muted" /><div className="h-16 animate-pulse rounded bg-muted" /></CardContent></Card>)}</div>
+      </LoadingState> : loadFailed ? <ErrorState title="Unable to load students" description="Something went wrong while retrieving student profiles." /> : students.length === 0 ? <EmptyState title="No students found" description="There are currently no student profiles to display." /> : <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         {students.map((student) => {
           const skills = getSkillsArray(student?.skills);
           return (
@@ -129,7 +140,7 @@ export default function StudentsPage() {
             </Card>
           );
         })}
-      </div>
+      </div>}
     </div>
   );
 }
