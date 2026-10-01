@@ -15,11 +15,13 @@ import PageHeader from "@/components/PageHeader";
 import { LoadingState } from "@/components/ui/loading-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Loader2 } from "lucide-react";
 
 export default function EditProfilePage() {
   const [profile, setProfile] = useState({});
   const [profileLoading, setProfileLoading] = useState(true);
   const [profileLoadFailed, setProfileLoadFailed] = useState(false);
+  const [saving, setSaving] = useState(false);
   const router = useRouter();
   const skillsValue = Array.isArray(profile?.skills)
     ? profile.skills.join(", ")
@@ -70,8 +72,9 @@ export default function EditProfilePage() {
 
   // Save changes
   const handleSave = async () => {
-    if (profileLoading || profileLoadFailed) return;
+    if (profileLoading || profileLoadFailed || saving) return;
 
+    setSaving(true);
     try {
       const updatedProfile = {
         full_name: profile.full_name ?? profile.name ?? "",
@@ -96,10 +99,12 @@ export default function EditProfilePage() {
         toast.success("Profile updated successfully!");
         router.push("/profile");
       } else {
-        toast.error(error || "Could not save your profile. Please try again.");
+        toast.error("Could not save your profile. Please review your details and try again.");
       }
-    } catch (err) {
+    } catch {
       toast.error("Could not save your profile. Please try again.");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -118,8 +123,9 @@ export default function EditProfilePage() {
 
             {/* Account details */}
             <div className="space-y-2">
-              <Label className="text-sm font-medium">Full name</Label>
+              <Label htmlFor="full-name" className="text-sm font-medium">Full name</Label>
               <Input
+                id="full-name"
                 value={profile?.full_name || profile?.name || ""}
                 onChange={(e) => handleFieldChange("full_name", e.target.value)}
                 placeholder="Enter your full name"
@@ -128,8 +134,9 @@ export default function EditProfilePage() {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-sm font-medium">Phone</Label>
+              <Label htmlFor="phone" className="text-sm font-medium">Phone</Label>
               <Input
+                id="phone"
                 value={profile?.phone || ""}
                 onChange={(e) => handleFieldChange("phone", e.target.value)}
                 placeholder="Enter your phone number"
@@ -138,14 +145,15 @@ export default function EditProfilePage() {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-sm font-medium">Email</Label>
-              <Input value={profile?.email || ""} disabled className="h-10" />
+              <Label htmlFor="email" className="text-sm font-medium">Email</Label>
+              <Input id="email" value={profile?.email || ""} disabled className="h-10" />
             </div>
 
             {/* College */}
             <div className="space-y-2">
-              <Label className="text-sm font-medium">College ID</Label>
+              <Label htmlFor="college-id" className="text-sm font-medium">College ID</Label>
               <Input
+                id="college-id"
                 value={profile?.college_id || ""}
                 onChange={(e) => handleFieldChange("college_id", e.target.value)}
                 placeholder="Enter your college ID"
@@ -155,8 +163,9 @@ export default function EditProfilePage() {
 
             {/* Branch */}
             <div className="space-y-2">
-              <Label className="text-sm font-medium">Department</Label>
+              <Label htmlFor="department" className="text-sm font-medium">Department</Label>
               <Input
+                id="department"
                 value={profile?.department || profile?.branch || ""}
                 onChange={(e) => handleFieldChange("department", e.target.value)}
                 placeholder="Enter your department"
@@ -165,8 +174,9 @@ export default function EditProfilePage() {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-sm font-medium">Degree</Label>
+              <Label htmlFor="degree" className="text-sm font-medium">Degree</Label>
               <Input
+                id="degree"
                 value={profile?.degree || ""}
                 onChange={(e) => handleFieldChange("degree", e.target.value)}
                 placeholder="Enter your degree"
@@ -175,8 +185,9 @@ export default function EditProfilePage() {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-sm font-medium">Graduation year</Label>
+              <Label htmlFor="graduation-year" className="text-sm font-medium">Graduation year</Label>
               <Input
+                id="graduation-year"
                 type="number"
                 value={profile?.graduation_year ?? ""}
                 onChange={(e) => handleFieldChange("graduation_year", e.target.value)}
@@ -187,8 +198,9 @@ export default function EditProfilePage() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-sm font-medium">CGPA</Label>
+                <Label htmlFor="cgpa" className="text-sm font-medium">CGPA</Label>
                 <Input
+                  id="cgpa"
                   type="number"
                   step="0.01"
                   value={profile?.cgpa ?? ""}
@@ -198,8 +210,9 @@ export default function EditProfilePage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-sm font-medium">Backlogs</Label>
+                <Label htmlFor="backlogs" className="text-sm font-medium">Backlogs</Label>
                 <Input
+                  id="backlogs"
                   type="number"
                   min="0"
                   value={profile?.backlogs ?? ""}
@@ -212,10 +225,11 @@ export default function EditProfilePage() {
 
             {/* Skills */}
             <div className="space-y-2">
-              <Label className="text-sm font-medium">
+              <Label htmlFor="skills" className="text-sm font-medium">
                 Skills (comma separated)
               </Label>
               <Textarea
+                id="skills"
                 placeholder="React, Next.js, Tailwind CSS, JavaScript..."
                 value={skillsValue}
                 onChange={(e) => handleFieldChange("skills", e.target.value)}
@@ -238,9 +252,9 @@ export default function EditProfilePage() {
             <Button
               className="mt-2 h-11 w-full font-medium"
               onClick={handleSave}
-              disabled={profileLoading || profileLoadFailed}
+              disabled={profileLoading || profileLoadFailed || saving}
             >
-              {profileLoading ? "Loading profile..." : profileLoadFailed ? "Profile unavailable" : "Save Changes"}
+              {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />Saving changes…</> : profileLoading ? "Loading profile..." : profileLoadFailed ? "Profile unavailable" : "Save Changes"}
             </Button>
           </CardContent>
         </Card>}

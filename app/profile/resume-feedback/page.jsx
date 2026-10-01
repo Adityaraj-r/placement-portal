@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { LoadingState } from "@/components/ui/loading-state";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
+import { Loader2 } from "lucide-react";
 
 export default function ResumeFeedbackPage() {
   const [loading, setLoading] = useState(false);
@@ -58,7 +59,7 @@ export default function ResumeFeedbackPage() {
       <div className="mx-auto w-full max-w-3xl space-y-8">
         <PageHeader
           title="Resume Feedback Assistant"
-          description="Upload your resume (PDF) for feedback on skills and formatting. Your PDF is sent to Google GenAI for processing."
+          description="Upload a PDF resume for feedback on skills and formatting."
         />
 
         <Card className="border-border bg-card shadow-sm">
@@ -75,7 +76,7 @@ export default function ResumeFeedbackPage() {
           </div>
 
           {error && (
-            <div role="alert" className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
+            <div role="alert" className="mb-6 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-destructive">
               <strong>Error: </strong>
               <p className="text-sm mt-1">{error}</p>
             </div>
@@ -86,7 +87,7 @@ export default function ResumeFeedbackPage() {
             disabled={loading}
             className="w-full sm:w-auto"
           >
-            {loading ? "Analyzing Resume..." : "Get Feedback"}
+            {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />Analyzing resume…</> : "Get Feedback"}
           </Button>
         </form>
           </CardContent>
@@ -101,17 +102,17 @@ export default function ResumeFeedbackPage() {
           <Card className="border-border bg-card shadow-sm">
             <CardContent className="space-y-6 p-5 sm:p-6">
             <div className="mb-6">
-              <h2 className="text-lg font-semibold text-gray-800">
+              <h2 className="text-lg font-semibold text-foreground">
                 Overall Score:{" "}
-                <span className="text-blue-600">{feedback.overallScore}</span>
+                <span className="text-primary">{feedback.overallScore}</span>
               </h2>
             </div>
 
             <div className="mb-6">
-              <h3 className="text-xl font-bold text-red-500 border-b border-red-200 pb-2 mb-3">
+              <h3 className="mb-3 border-b border-border pb-2 text-xl font-bold text-destructive">
                 Missing Skills
               </h3>
-              <ul className="list-disc pl-5 text-gray-700 space-y-1">
+              <ul className="list-disc space-y-1 pl-5 text-foreground">
                 {feedback.missingSkills.map((skill, idx) => (
                   <li key={idx}>{skill}</li>
                 ))}
@@ -119,17 +120,17 @@ export default function ResumeFeedbackPage() {
             </div>
 
             <div className="mb-6">
-              <h3 className="text-xl font-bold text-blue-600 border-b border-blue-200 pb-2 mb-3">
+              <h3 className="mb-3 border-b border-border pb-2 text-xl font-bold text-primary">
                 Formatting Suggestions
               </h3>
-              <ul className="list-disc pl-5 text-gray-700 space-y-1">
+              <ul className="list-disc space-y-1 pl-5 text-foreground">
                 {feedback.formattingSuggestions.map((suggestion, idx) => (
                   <li key={idx}>{suggestion}</li>
                 ))}
               </ul>
             </div>
 
-            <div className="bg-yellow-50 border border-yellow-300 text-yellow-800 text-sm rounded-lg p-3 mb-5">
+            <div role="note" className="mb-5 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-foreground">
               This is AI-powered guidance. Please review and update your resume
               manually before applying.
             </div>

@@ -10,12 +10,16 @@ export function Toaster() {
       toastOptions={{
         classNames: {
           toast:
-            "group toast bg-white border border-slate-200/80 text-slate-900 shadow-lg rounded-xl",
-          description: "text-slate-600",
+            "group toast bg-card border border-border text-card-foreground shadow-md rounded-lg",
+          description: "text-muted-foreground",
+          success: "border-primary/30",
+          warning: "border-border",
+          error: "border-destructive/40",
+          info: "border-border",
           actionButton:
-            "bg-blue-600 text-white hover:bg-blue-700 rounded-md",
+            "bg-primary text-primary-foreground hover:bg-primary/90 rounded-md",
           cancelButton:
-            "bg-slate-100 text-slate-900 hover:bg-slate-200 rounded-md",
+            "bg-secondary text-secondary-foreground hover:bg-secondary/80 rounded-md",
         },
       }}
     />

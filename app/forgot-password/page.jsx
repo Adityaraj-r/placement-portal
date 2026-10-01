@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Loader2 } from "lucide-react";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -45,16 +46,16 @@ export default function ForgotPasswordPage() {
     }
   }
 
-  return <div className="min-h-screen flex items-center justify-center bg-linear-to-b from-white to-blue-50 px-4">
-    <Card className="w-full max-w-md rounded-2xl shadow-xl">
+  return <main className="flex min-h-dvh items-center justify-center bg-muted/30 px-4 py-8 sm:px-6">
+    <Card className="w-full max-w-md rounded-xl border-border shadow-sm">
       <CardHeader className="text-center"><CardTitle>Reset your password</CardTitle><CardDescription>We’ll email you a secure reset link.</CardDescription></CardHeader>
       <CardContent>
         {sent ? <p className="text-sm text-center" role="status">If an account matches that email, a password reset link is on its way. Check your inbox.</p> : <form onSubmit={submit} className="space-y-4">
-          <div className="space-y-1"><Label htmlFor="email">Email address</Label><Input id="email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} required aria-invalid={Boolean(error)} />{error && <p className="text-sm text-destructive">{error}</p>}</div>
-          <Button className="w-full" disabled={loading}>{loading ? "Sending…" : "Send reset link"}</Button>
+          <div className="space-y-1"><Label htmlFor="email">Email address <span className="text-destructive" aria-hidden="true">*</span></Label><Input id="email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} required aria-invalid={Boolean(error)} aria-describedby={error ? "email-error" : undefined} />{error && <p id="email-error" className="text-sm text-destructive" role="alert">{error}</p>}</div>
+          <Button className="w-full" disabled={loading}>{loading ? <><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Sending…</> : "Send reset link"}</Button>
         </form>}
-        <p className="mt-5 text-center text-sm"><Link className="text-blue-600 underline" href="/login">Back to login</Link></p>
+        <p className="mt-5 text-center text-sm"><Link className="text-primary underline underline-offset-4" href="/login">Back to login</Link></p>
       </CardContent>
     </Card>
-  </div>;
+  </main>;
 }

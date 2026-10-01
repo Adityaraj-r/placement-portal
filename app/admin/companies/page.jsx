@@ -5,7 +5,7 @@ import { Building2 } from "lucide-react";
 import { toast } from "sonner";
 import { createCompany, getCompanies, updateCompany } from "@/app/actions/company.actions";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -110,31 +110,37 @@ export default function CompaniesPage() {
         <Card className="h-fit">
           <CardHeader>
             <CardTitle>{editingId ? "Edit Company" : "Add Company"}</CardTitle>
+            <CardDescription>Company details are available to staff when configuring placement drives.</CardDescription>
           </CardHeader>
           <CardContent>
             <form className="space-y-4" onSubmit={handleSave}>
+              <p className="text-sm text-muted-foreground"><span className="text-destructive" aria-hidden="true">*</span> Required field</p>
               <div className="space-y-1">
-                <Label htmlFor="company-name">Company name</Label>
-                <Input id="company-name" value={company.name} onChange={(event) => updateField("name", event.target.value)} required />
+                <Label htmlFor="company-name">Company name <span className="text-destructive" aria-hidden="true">*</span></Label>
+                <Input id="company-name" autoComplete="organization" value={company.name} onChange={(event) => updateField("name", event.target.value)} required />
               </div>
+              <div className="space-y-3 border-t border-border pt-4">
+                <h3 className="text-sm font-semibold text-foreground">Company information</h3>
               {COMPANY_FIELDS.map((field) => (
                 <div className="space-y-1" key={field.key}>
                   <Label htmlFor={`company-${field.key}`}>{field.label}</Label>
                   <Input
                     id={`company-${field.key}`}
                     type={field.type || "text"}
+                    autoComplete={field.key === "website" ? "url" : field.key === "hr_contact_name" ? "name" : field.key === "hr_contact_email" ? "email" : undefined}
                     value={company[field.key]}
                     onChange={(event) => updateField(field.key, event.target.value)}
                   />
                 </div>
               ))}
+              </div>
               <div className="space-y-1">
                 <Label htmlFor="company-description">Description</Label>
-                <Textarea id="company-description" value={company.description} onChange={(event) => updateField("description", event.target.value)} />
+                <Textarea id="company-description" value={company.description} onChange={(event) => updateField("description", event.target.value)} className="min-h-28 resize-y" />
               </div>
-              <div className="flex gap-2">
-                <Button type="submit" disabled={saving}>{saving ? "Saving…" : editingId ? "Save Changes" : "Add Company"}</Button>
-                {editingId && <Button type="button" variant="outline" onClick={resetForm}>Cancel</Button>}
+              <div className="flex flex-col-reverse gap-2 border-t border-border pt-4 sm:flex-row sm:justify-end">
+                {editingId && <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={resetForm}>Cancel</Button>}
+                <Button type="submit" className="w-full sm:w-auto" disabled={saving}>{saving ? "Saving…" : editingId ? "Save Changes" : "Add Company"}</Button>
               </div>
             </form>
           </CardContent>

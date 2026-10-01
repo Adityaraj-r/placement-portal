@@ -15,7 +15,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -148,8 +147,8 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-linear-to-b from-white to-blue-50 px-4">
-      <Card className="w-full max-w-md shadow-xl rounded-2xl">
+    <main className="flex min-h-dvh items-center justify-center bg-muted/30 px-4 py-8 sm:px-6">
+      <Card className="w-full max-w-md rounded-xl border-border shadow-sm">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">Welcome to Placement Portal</CardTitle>
           <CardDescription>Create your account</CardDescription>
@@ -181,59 +180,74 @@ export default function SignupPage() {
           <form onSubmit={handleSignup} className="space-y-4">
             {/* NAME */}
             <div className="space-y-1">
-              <Label>Name</Label>
+              <Label htmlFor="signup-name">Name <span className="text-destructive" aria-hidden="true">*</span></Label>
               <Input
+                id="signup-name"
                 name="name"
                 placeholder="John"
+                autoComplete="name"
+                required
                 value={formData.name}
                 onChange={handleChange}
                 aria-invalid={!!errors.name}
               />
               {errors.name ? (
-                <p className="text-xs text-destructive">{errors.name}</p>
+                <p id="signup-name-error" className="text-sm text-destructive" role="alert">{errors.name}</p>
               ) : null}
             </div>
 
             {/* EMAIL */}
             <div className="space-y-1">
-              <Label>Email Address</Label>
+              <Label htmlFor="signup-email">Email address <span className="text-destructive" aria-hidden="true">*</span></Label>
               <Input
+                id="signup-email"
                 type="email"
                 name="email"
                 placeholder="john@gmail.com"
+                autoComplete="email"
+                required
                 value={formData.email}
                 onChange={handleChange}
                 aria-invalid={!!errors.email}
+                aria-describedby={errors.email ? "signup-email-error" : undefined}
               />
               {errors.email ? (
-                <p className="text-xs text-destructive">{errors.email}</p>
+                <p id="signup-email-error" className="text-sm text-destructive" role="alert">{errors.email}</p>
               ) : null}
             </div>
 
             {/* PASSWORD */}
             <div className="space-y-1">
-              <Label>Password</Label>
+              <Label htmlFor="signup-password">Password <span className="text-destructive" aria-hidden="true">*</span></Label>
               <div className="relative">
                 <Input
+                  id="signup-password"
                   type={showPassword ? "text" : "password"}
                   name="password"
                   placeholder="Password"
+                  autoComplete="new-password"
+                  minLength={6}
+                  required
                   value={formData.password}
                   onChange={handleChange}
-                  className="pr-10"
+                  className="pr-12"
                   aria-invalid={!!errors.password}
+                  aria-describedby={errors.password ? "signup-password-error" : "signup-password-help"}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-2.5 text-muted-foreground"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  aria-pressed={showPassword}
+                  className="absolute right-1 top-1 inline-flex h-10 w-10 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  {showPassword ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
                 </button>
               </div>
               {errors.password ? (
-                <p className="text-xs text-destructive">{errors.password}</p>
+                <p id="signup-password-error" className="text-sm text-destructive" role="alert">{errors.password}</p>
               ) : null}
+              {!errors.password && <p id="signup-password-help" className="text-sm text-muted-foreground">Use at least 6 characters.</p>}
             </div>
 
             {/* REMEMBER */}
@@ -242,15 +256,15 @@ export default function SignupPage() {
                 <Checkbox id="remember" />
                 <Label htmlFor="remember">Remember me</Label>
               </div>
-              <button type="button" className="text-blue-600 hover:underline">
+              <Link href="/forgot-password" className="text-primary hover:underline">
                 Forgot password?
-              </button>
+              </Link>
             </div>
 
             {/* SUBMIT */}
             <Button className="w-full" type="submit" disabled={loading}>
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Sign up
+              {loading && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+              {loading ? "Creating account…" : "Sign up"}
             </Button>
           </form>
 
@@ -292,6 +306,6 @@ export default function SignupPage() {
           </p>
         </CardContent>
       </Card>
-    </div>
+    </main>
   );
 }
