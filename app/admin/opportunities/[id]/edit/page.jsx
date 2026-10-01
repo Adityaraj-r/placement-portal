@@ -11,6 +11,7 @@ import { getOpportunityById, updateOpportunity } from "@/app/actions/opportuniti
 import { toast } from "sonner";
 import Link from "next/link";
 import { getCompanies } from "@/app/actions/company.actions";
+import PageHeader from "@/components/PageHeader";
 import { DRIVE_STATUSES, canTransitionDriveStatus } from "@/lib/placement/drive-rules.mjs";
 import {
   Select,
@@ -66,10 +67,13 @@ export default function EditOpportunityPage() {
   if (!opportunity) return null;
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6">Edit Opportunity</h1>
+    <div className="mx-auto w-full max-w-3xl space-y-8">
+      <PageHeader
+        title="Edit Placement Drive"
+        description="Update company details, eligibility criteria, and drive status."
+      />
 
-      <Card className="shadow-sm">
+      <Card className="border-border bg-card shadow-sm">
         <CardContent className="p-6 space-y-4">
 
           <div className="space-y-1">
@@ -160,12 +164,12 @@ export default function EditOpportunityPage() {
             />
           </div>
 
-          <div className="flex gap-3 pt-4">
-            <Button className="bg-blue-600" onClick={handleUpdate} disabled={companies.length === 0}>
-              Update Opportunity
-            </Button>
+          <div className="flex flex-col-reverse gap-2 border-t border-border pt-5 sm:flex-row sm:justify-between">
             <Button variant="destructive" onClick={handleClose} disabled={["completed", "cancelled"].includes(opportunity.status)}>
               Close Opportunity
+            </Button>
+            <Button onClick={handleUpdate} disabled={companies.length === 0}>
+              Update Opportunity
             </Button>
           </div>
 

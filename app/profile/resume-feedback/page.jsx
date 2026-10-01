@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import { getResumeFeedback } from "./actions";
+import PageHeader from "@/components/PageHeader";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 export default function ResumeFeedbackPage() {
   const [loading, setLoading] = useState(false);
@@ -44,25 +47,23 @@ export default function ResumeFeedbackPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 flex items-start justify-center pt-12 px-4">
-      <div className="w-full max-w-3xl bg-white rounded-2xl shadow-xl border border-gray-200 p-8">
-        <div className="text-center mb-8 mt-2">
-          <h1 className="text-4xl font-extrabold text-blue-600">
-            Resume Feedback Assistant
-          </h1>
-          <p className="text-sm text-gray-500 mt-2">
-            Upload your resume (PDF) and get feedback on missing skills & formatting. Your PDF is sent to Google GenAI for processing.
-          </p>
-        </div>
+    <div className="w-full px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+      <div className="mx-auto w-full max-w-3xl space-y-8">
+        <PageHeader
+          title="Resume Feedback Assistant"
+          description="Upload your resume (PDF) for feedback on skills and formatting. Your PDF is sent to Google GenAI for processing."
+        />
 
-        <form onSubmit={handleSubmit}>
-          <div className="border-2 border-dashed border-blue-300 rounded-xl p-8 bg-blue-50 text-center mb-6 transition hover:bg-blue-100">
+        <Card className="border-border bg-card shadow-sm">
+          <CardContent className="p-5 sm:p-6">
+        <form className="space-y-6" onSubmit={handleSubmit}>
+          <div className="rounded-lg border-2 border-dashed border-border bg-muted/40 p-5 text-center transition-colors hover:bg-muted/70 sm:p-8">
             <input
               type="file"
               name="resume"
               accept=".pdf"
               required
-              className="block mx-auto text-sm text-blue-600 file:py-2 file:px-4 file:border-0 file:outline-none file:bg-blue-600 file:text-white file:rounded-lg hover:file:bg-blue-700 cursor-pointer"
+              className="mx-auto block max-w-full cursor-pointer text-sm text-foreground file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-4 file:py-2 file:font-medium file:text-primary-foreground hover:file:bg-primary/90"
             />
           </div>
 
@@ -73,23 +74,21 @@ export default function ResumeFeedbackPage() {
             </div>
           )}
 
-          <button
+          <Button
             type="submit"
             disabled={loading}
-            className={`w-full py-3 rounded-lg text-white font-semibold text-base transition 
-            ${
-              loading
-                ? "bg-indigo-200 cursor-not-allowed"
-                : "bg-blue-600 hover:bg-blue-700 shadow-md"
-            }`}
+            className="w-full sm:w-auto"
           >
             {loading ? "Analyzing Resume..." : "Get Feedback"}
-          </button>
+          </Button>
         </form>
+          </CardContent>
+        </Card>
 
         {/* Feedback Card  */}
         {feedback && (
-          <div className="mt-8 bg-white border border-gray-200 shadow-sm rounded-xl p-6">
+          <Card className="border-border bg-card shadow-sm">
+            <CardContent className="space-y-6 p-5 sm:p-6">
             <div className="mb-6">
               <h2 className="text-lg font-semibold text-gray-800">
                 Overall Score:{" "}
@@ -124,13 +123,15 @@ export default function ResumeFeedbackPage() {
               manually before applying.
             </div>
 
-            <button
+            <Button
+              type="button"
+              variant="outline"
               onClick={() => setFeedback(null)}
-              className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition"
             >
               Check Another Resume
-            </button>
-          </div>
+            </Button>
+            </CardContent>
+          </Card>
         )}
       </div>
     </div>

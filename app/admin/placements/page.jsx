@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { getPlacements } from "@/app/actions/placement.actions";
 import { Card, CardContent } from "@/components/ui/card";
+import PageHeader from "@/components/PageHeader";
 
 export default function PlacementsPage() {
   const [placements, setPlacements] = useState([]);
@@ -25,17 +26,14 @@ export default function PlacementsPage() {
   }, []);
 
   return (
-    <section className="mx-auto max-w-6xl space-y-6">
-      <header>
-        <h1 className="text-3xl font-bold">Placements</h1>
-        <p className="text-muted-foreground">Placement records created from accepted offers.</p>
-      </header>
+    <section className="w-full max-w-7xl space-y-8">
+      <PageHeader title="Placements" description="Placement records created from accepted offers." />
       {loading ? <p aria-live="polite">Loading placements…</p> : error ? <p role="alert">{error}</p> : placements.length === 0 ? (
         <Card><CardContent className="p-6 text-sm text-muted-foreground">No accepted offers have created placement records yet.</CardContent></Card>
       ) : (
         <div className="grid gap-4">
           {placements.map((placement) => (
-            <Card key={placement.id}>
+            <Card key={placement.id} className="border-border bg-card">
               <CardContent className="grid gap-2 p-5 text-sm sm:grid-cols-2">
                 <p><span className="font-medium">Student:</span> {placement.student?.full_name || placement.student?.email || "-"}</p>
                 <p><span className="font-medium">Company:</span> {placement.company?.name || "-"}</p>

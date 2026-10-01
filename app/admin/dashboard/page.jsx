@@ -3,6 +3,7 @@ import { getAllApplications } from "@/app/actions/applications.actions";
 import { getAllOpportunities } from "@/app/actions/opportunities.actions";
 import { getAllProfiles } from "@/app/actions/profile.actions";
 import { Card, CardContent } from "@/components/ui/card";
+import PageHeader from "@/components/PageHeader";
 import { useEffect, useState } from "react";
 
 export default function DashboardPage() {
@@ -29,27 +30,21 @@ export default function DashboardPage() {
   }, [])
 
   return (
-    <div className="mx-auto max-w-7xl space-y-8">
-      {/* Header */}
-      <div className="space-y-2">
-        <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-muted-foreground text-base">
-          Overview of students, opportunities, and applications.
-        </p>
-      </div>
+    <div className="w-full max-w-7xl space-y-8">
+      <PageHeader title="Dashboard" description="Overview of students, opportunities, and applications." />
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat, i) => (
           <Card
             key={i}
-            className="border border-slate-200/80 bg-white hover:shadow-lg transition-all duration-200 rounded-xl overflow-hidden group"
+            className="border-border bg-card transition-shadow hover:shadow-md"
           >
             <CardContent className="px-6 py-6 space-y-2">
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 {stat.title}
               </p>
-              <p className="text-3xl font-bold text-blue-600 group-hover:scale-105 transition-transform">
+              <p className="text-3xl font-semibold tracking-tight text-primary">
                 {stat.value}
               </p>
             </CardContent>

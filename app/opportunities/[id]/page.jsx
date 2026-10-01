@@ -6,8 +6,9 @@ import { useEffect, useState } from "react";
 import { getOpportunityById } from "@/app/actions/opportunities.actions";
 import { applyToOpportunity, getMyApplicationEligibility } from "@/app/actions/applications.actions";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
+import PageHeader from "@/components/PageHeader";
 
 export default function OpportunityDetailsPage() {
   const { id } = useParams();
@@ -58,35 +59,31 @@ export default function OpportunityDetailsPage() {
   if (loading) return <main className="mx-auto max-w-3xl p-8" aria-live="polite">Loading placement drive…</main>;
   if (!drive) {
     return (
-      <main className="mx-auto max-w-3xl space-y-4 p-8 text-center">
-        <h1 className="text-2xl font-bold">Placement drive unavailable</h1>
-        <p className="text-muted-foreground">This drive may no longer be published.</p>
+      <main className="mx-auto w-full max-w-4xl space-y-6 px-4 py-8 sm:px-6 sm:py-10">
+        <PageHeader title="Placement drive unavailable" description="This drive may no longer be published." />
         <Button onClick={() => router.push("/opportunities")}>Back to published drives</Button>
       </main>
     );
   }
 
   return (
-    <main className="mx-auto max-w-3xl space-y-6 px-4 py-10">
-      <Link href="/opportunities" className="text-sm text-blue-600 hover:underline">← Published drives</Link>
+    <main className="mx-auto w-full max-w-4xl space-y-6 px-4 py-8 sm:px-6 sm:py-10">
+      <Link href="/opportunities" className="text-sm font-medium text-primary hover:underline">← Published drives</Link>
+      <PageHeader title={drive.title} description={drive.company_name} />
       <Card>
-        <CardHeader>
-          <p className="text-sm font-medium text-blue-600">{drive.company_name}</p>
-          <CardTitle className="text-3xl">{drive.title}</CardTitle>
-        </CardHeader>
         <CardContent className="space-y-6">
-          {drive.description && <section className="space-y-2"><h2 className="font-semibold">Role details</h2><p className="whitespace-pre-wrap text-sm text-slate-700">{drive.description}</p></section>}
+          {drive.description && <section className="space-y-2"><h2 className="font-semibold">Role details</h2><p className="whitespace-pre-wrap text-sm leading-6 text-foreground/85">{drive.description}</p></section>}
           <section className="grid gap-4 sm:grid-cols-2">
             <p><span className="font-medium">Company: </span>{drive.company_name}</p>
             {drive.companies?.industry && <p><span className="font-medium">Industry: </span>{drive.companies.industry}</p>}
             {drive.location && <p><span className="font-medium">Location: </span>{drive.location}</p>}
-            {drive.companies?.website && <p><span className="font-medium">Website: </span><a className="text-blue-600 underline" href={drive.companies.website} target="_blank" rel="noreferrer">{drive.companies.website}</a></p>}
+            {drive.companies?.website && <p><span className="font-medium">Website: </span><a className="text-primary underline" href={drive.companies.website} target="_blank" rel="noreferrer">{drive.companies.website}</a></p>}
             {drive.package_lpa != null && <p><span className="font-medium">Package: </span>{drive.package_lpa} LPA</p>}
             <p><span className="font-medium">Registration deadline: </span>{new Date(drive.registration_deadline).toLocaleString()}</p>
           </section>
           <section className="space-y-2 border-t pt-4">
             <h2 className="font-semibold">Eligibility</h2>
-            <p className="text-sm text-slate-700">
+            <p className="text-sm text-foreground/85">
               {Array.isArray(drive.allowed_departments) && drive.allowed_departments.length ? drive.allowed_departments.join(", ") : "Departments not specified"}
               {drive.min_cgpa != null ? ` · Minimum CGPA ${drive.min_cgpa}` : ""}
               {` · Maximum backlogs ${drive.max_backlogs ?? 0}`}
@@ -101,14 +98,14 @@ export default function OpportunityDetailsPage() {
               <div className="space-y-2">
                 <p className="text-sm text-amber-800">{applicationCheck?.error || "Checking application eligibility…"}</p>
                 {applicationCheck?.error?.toLowerCase().includes("profile") || applicationCheck?.error?.toLowerCase().includes("resume") ? (
-                  <Link className="text-sm text-blue-600 underline" href="/profile">Review your profile</Link>
+                  <Link className="text-sm text-primary underline" href="/profile">Review your profile</Link>
                 ) : null}
               </div>
             )}
             <Button onClick={handleApply} disabled={!applicationCheck?.eligible || submitting}>
               {submitting ? "Submitting…" : "Apply to this drive"}
             </Button>
-            <Link className="ml-3 text-sm text-blue-600 underline" href="/applications">My Applications</Link>
+            <Link className="ml-3 text-sm text-primary underline" href="/applications">My Applications</Link>
           </section>
         </CardContent>
       </Card>

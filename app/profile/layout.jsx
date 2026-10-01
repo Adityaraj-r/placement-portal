@@ -5,9 +5,9 @@ import StudentFooter from "@/components/StudentFooter";
 
 export default function ProfileLayout({ children }) {
   return (
-    <div className="flex min-h-screen flex-col bg-slate-100">
+    <div className="flex min-h-screen min-w-0 flex-col bg-muted/30">
       <StudentNavbar />
-      <main className="flex-1">{children}</main>
+      <main className="w-full min-w-0 flex-1">{children}</main>
       <StudentFooter />
     </div>
   );

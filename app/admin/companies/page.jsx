@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import PageHeader from "@/components/PageHeader";
 
 const EMPTY_COMPANY = {
   name: "",
@@ -91,13 +92,10 @@ export default function CompaniesPage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-8">
-      <div className="space-y-2">
-        <h1 className="text-3xl font-bold text-gray-900">Companies</h1>
-        <p className="text-base text-muted-foreground">Manage the companies linked to placement drives.</p>
-      </div>
+    <div className="w-full max-w-7xl space-y-8">
+      <PageHeader title="Companies" description="Manage the companies linked to placement drives." />
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(18rem,0.8fr)_minmax(0,1.2fr)]">
+      <div className="grid min-w-0 grid-cols-1 gap-6 xl:grid-cols-[minmax(18rem,0.8fr)_minmax(0,1.2fr)]">
         <Card className="h-fit">
           <CardHeader>
             <CardTitle>{editingId ? "Edit Company" : "Add Company"}</CardTitle>
@@ -135,20 +133,20 @@ export default function CompaniesPage() {
           {loading ? (
             <p className="text-sm text-muted-foreground">Loading companies…</p>
           ) : companies.length ? companies.map((item) => (
-            <Card key={item.id}>
+                <Card key={item.id} className="border-border bg-card">
               <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-start sm:justify-between">
                 <div className="flex min-w-0 gap-3">
-                  <Building2 className="mt-1 h-5 w-5 shrink-0 text-blue-600" />
+                  <Building2 className="mt-1 h-5 w-5 shrink-0 text-primary" />
                   <div className="min-w-0 space-y-1">
-                    <h2 className="font-semibold text-gray-900">{item.name}</h2>
-                    <p className="text-sm text-slate-600">{[item.industry, item.location].filter(Boolean).join(" · ") || "Industry and location not provided"}</p>
+                    <h2 className="font-semibold text-foreground">{item.name}</h2>
+                    <p className="text-sm text-muted-foreground">{[item.industry, item.location].filter(Boolean).join(" · ") || "Industry and location not provided"}</p>
                     {item.website && (
-                      <a className="block truncate text-sm text-blue-600 hover:underline" href={item.website} target="_blank" rel="noreferrer">{item.website}</a>
+                      <a className="block truncate text-sm text-primary hover:underline" href={item.website} target="_blank" rel="noreferrer">{item.website}</a>
                     )}
                     {(item.hr_contact_name || item.hr_contact_email) && (
-                      <p className="text-sm text-slate-600">HR: {[item.hr_contact_name, item.hr_contact_email].filter(Boolean).join(" · ")}</p>
+                      <p className="text-sm text-muted-foreground">HR: {[item.hr_contact_name, item.hr_contact_email].filter(Boolean).join(" · ")}</p>
                     )}
-                    {item.description && <p className="mt-2 text-sm text-slate-600">{item.description}</p>}
+                    {item.description && <p className="mt-2 text-sm text-muted-foreground">{item.description}</p>}
                   </div>
                 </div>
                 <Button type="button" variant="outline" size="sm" onClick={() => startEditing(item)}>Edit</Button>

@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Briefcase, Building2, Calendar, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import PageHeader from "@/components/PageHeader";
 
 function formatDate(value) {
   if (!value) return "-";
@@ -81,42 +82,37 @@ export default function MyApplicationsPage() {
   }, [applications]);
 
   return (
-    <div className="px-4 py-10">
-      <div className="mx-auto max-w-5xl space-y-8">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-bold text-gray-900">My Applications</h1>
-          <p className="text-sm text-muted-foreground">
-            Track the status of applications you&apos;ve submitted.
-          </p>
-        </div>
+    <div className="w-full px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+      <div className="mx-auto w-full max-w-5xl space-y-8">
+        <PageHeader title="My Applications" description="Track the status of applications you’ve submitted." />
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <Card className="border border-slate-200/80 bg-white rounded-xl">
+          <Card className="border-border bg-card">
             <CardContent className="px-6 py-5 space-y-1">
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Total
               </p>
-              <p className="text-2xl font-bold text-blue-600">
+              <p className="text-2xl font-semibold tracking-tight text-primary">
                 {applications.length}
               </p>
             </CardContent>
           </Card>
-          <Card className="border border-slate-200/80 bg-white rounded-xl">
+          <Card className="border-border bg-card">
             <CardContent className="px-6 py-5 space-y-1">
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Applied
               </p>
-              <p className="text-2xl font-bold text-blue-600">
+              <p className="text-2xl font-semibold tracking-tight text-primary">
                 {stats.applied ?? 0}
               </p>
             </CardContent>
           </Card>
-          <Card className="border border-slate-200/80 bg-white rounded-xl">
+          <Card className="border-border bg-card">
             <CardContent className="px-6 py-5 space-y-1">
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Shortlisted
               </p>
-              <p className="text-2xl font-bold text-blue-600">
+              <p className="text-2xl font-semibold tracking-tight text-primary">
                 {stats.shortlisted ?? 0}
               </p>
             </CardContent>
@@ -134,23 +130,23 @@ export default function MyApplicationsPage() {
                 return (
                   <Card
                     key={app.id}
-                    className="border border-slate-200/80 bg-white hover:shadow-lg transition-all duration-200 rounded-xl overflow-hidden group"
+                    className="border-border bg-card transition-shadow hover:shadow-md"
                   >
                     <CardContent className="px-6 py-5">
                       <div className="space-y-4">
                         {/* Header */}
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
+                            <div className="mb-1 flex items-center gap-2">
                               <Briefcase
                                 size={18}
-                                className="text-blue-600 shrink-0"
+                                className="shrink-0 text-primary"
                               />
-                              <h3 className="text-lg font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
+                              <h3 className="text-lg font-semibold tracking-tight text-foreground">
                                 {drive?.title || "Unknown Role"}
                               </h3>
                             </div>
-                            <div className="flex items-center gap-2 text-sm text-blue-600 font-medium">
+                            <div className="flex items-center gap-2 text-sm font-medium text-primary">
                               <Building2 size={14} />
                               <span>{company?.name || "Unknown Company"}</span>
                             </div>
@@ -171,13 +167,13 @@ export default function MyApplicationsPage() {
 
                         {/* Opportunity Details */}
                         {drive && (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-slate-100">
+                          <div className="grid grid-cols-1 gap-4 border-t border-border pt-4 sm:grid-cols-2">
                             {drive.job_description && (
                               <div className="sm:col-span-2">
                                 <Label className="text-xs font-medium text-slate-500 uppercase tracking-wide">
                                   Description
                                 </Label>
-                                <p className="text-sm text-gray-700 mt-1.5 line-clamp-2">
+                                <p className="mt-1.5 line-clamp-2 text-sm text-foreground/85">
                                   {drive.job_description}
                                 </p>
                               </div>
@@ -188,7 +184,7 @@ export default function MyApplicationsPage() {
                                 <Label className="text-xs font-medium text-slate-500 uppercase tracking-wide">
                                   Location
                                 </Label>
-                                <p className="text-sm text-gray-700 mt-1.5">
+                                <p className="mt-1.5 text-sm text-foreground/85">
                                   {drive.job_location}
                                 </p>
                               </div>
@@ -199,7 +195,7 @@ export default function MyApplicationsPage() {
                                 <Label className="text-xs font-medium text-slate-500 uppercase tracking-wide">
                                   Package
                                 </Label>
-                                <p className="text-sm text-gray-700 mt-1.5">
+                                <p className="mt-1.5 text-sm text-foreground/85">
                                   {drive.package_lpa} LPA
                                 </p>
                               </div>
@@ -212,7 +208,7 @@ export default function MyApplicationsPage() {
                                 </Label>
                                 <div className="flex items-center gap-1.5 mt-1.5">
                                   <Calendar size={14} className="text-slate-400" />
-                                  <p className="text-sm text-gray-700">
+                                  <p className="text-sm text-foreground/85">
                                     {new Date(drive.registration_deadline).toLocaleDateString(
                                       "en-US",
                                       {
@@ -267,7 +263,7 @@ export default function MyApplicationsPage() {
                         )}
 
                         {/* Footer */}
-                        <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+                          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
                           <div className="flex items-center gap-2 text-xs text-slate-500">
                             <FileText size={12} />
                             <span>Applied on {formatDate(app.applied_at)}</span>
@@ -285,7 +281,7 @@ export default function MyApplicationsPage() {
               })}
             </div>
           ) : (
-            <Card className="border border-slate-200/80 bg-white rounded-xl">
+            <Card className="border-border bg-card">
               <CardContent className="px-6 py-6">
                 <p className="text-sm text-muted-foreground">
                   You haven’t applied to any opportunities yet.

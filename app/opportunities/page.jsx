@@ -8,6 +8,7 @@ import { Search } from "lucide-react";
 import { getAllOpportunities } from "../actions/opportunities.actions";
 import { createClient } from "@/lib/supabase/supabaseClient";
 import { useRouter } from "next/navigation";
+import PageHeader from "@/components/PageHeader";
 
 export default function OpportunitiesPage() {
   const [search, setSearch] = useState("");
@@ -36,20 +37,15 @@ export default function OpportunitiesPage() {
     getData().then(setOpportunities)
   }, [getData])
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-10">
-      <div className="max-w-7xl mx-auto space-y-8">
-        {/* Header */}
-        <div className="text-center space-y-3">
-          <h1 className="text-3xl font-bold text-gray-900">
-            Explore Opportunities
-          </h1>
-          <p className="text-muted-foreground text-base">
-            Find jobs, internships, and career opportunities
-          </p>
-        </div>
+    <div className="w-full px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+      <div className="mx-auto w-full max-w-7xl space-y-8">
+        <PageHeader
+          title="Opportunities"
+          description="Explore available placement opportunities."
+        />
 
         {/* Search Bar */}
-        <div className="max-w-2xl mx-auto">
+        <div className="mx-auto w-full max-w-2xl">
           <div className="relative">
             <Search
               className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground"
@@ -57,13 +53,13 @@ export default function OpportunitiesPage() {
             />
             <Input
               placeholder="Search by role, company, or skill..."
-              className="pl-12 h-12 text-base border-slate-300 focus-visible:ring-blue-500 focus-visible:border-blue-500"
+              className="h-12 border-input pl-12 text-base"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
           {search && (
-            <p className="text-sm text-slate-500 mt-2 text-center">
+            <p className="mt-2 text-center text-sm text-muted-foreground">
               {filteredOpportunities.length} opportunity
               {filteredOpportunities.length !== 1 ? "ies" : "y"} found
             </p>

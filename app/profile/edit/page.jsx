@@ -11,6 +11,7 @@ import { getProfileByUserId, updateProfile } from "@/app/actions/profile.actions
 import { createClient } from "@/lib/supabase/supabaseClient";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import PageHeader from "@/components/PageHeader";
 
 export default function EditProfilePage() {
   const [profile, setProfile] = useState({});
@@ -100,15 +101,9 @@ export default function EditProfilePage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-10">
-      <div className="mx-auto max-w-2xl space-y-6">
-        {/* Header */}
-        <div className="text-center space-y-2">
-          <h1 className="text-3xl font-bold text-gray-900">Edit Profile</h1>
-          <p className="text-muted-foreground text-sm">
-            Update your account and academic information
-          </p>
-        </div>
+    <div className="w-full px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+      <div className="mx-auto w-full max-w-3xl space-y-8">
+        <PageHeader title="Edit Profile" description="Update your account and academic information." />
 
         {profileLoadFailed && (
           <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">
@@ -117,7 +112,7 @@ export default function EditProfilePage() {
         )}
 
         {/* Form Card */}
-        <Card className="bg-white border border-slate-200/80 rounded-xl shadow-md">
+        <Card className="border-border bg-card shadow-sm">
           <CardContent className="p-6 space-y-6">
 
             {/* Account details */}
@@ -226,15 +221,12 @@ export default function EditProfilePage() {
                 className="min-h-24"
               />
               {skillsValue && (
-                <div className="flex gap-2 flex-wrap mt-2 pt-2 border-t border-slate-100">
+              <div className="mt-2 flex flex-wrap gap-2 border-t border-border pt-3">
                   {skillsValue
                     .split(",")
                     .filter((s) => s.trim() !== "")
                     .map((skill, i) => (
-                      <Badge
-                        key={i}
-                        className="bg-blue-50 text-blue-700 border border-blue-200 text-sm font-medium"
-                      >
+                      <Badge key={i} variant="secondary" className="text-sm font-medium">
                         {skill.trim()}
                       </Badge>
                     ))}
@@ -243,7 +235,7 @@ export default function EditProfilePage() {
             </div>
 
             <Button
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium h-11 mt-2"
+              className="mt-2 h-11 w-full font-medium"
               onClick={handleSave}
               disabled={profileLoading || profileLoadFailed}
             >

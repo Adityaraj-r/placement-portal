@@ -1,11 +1,11 @@
 "use client";
-import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useEffect, useState } from "react";
 import { getAllProfiles } from "@/app/actions/profile.actions";
+import PageHeader from "@/components/PageHeader";
 
 export default function StudentsPage() {
   const [students, setStudents] = useState([]);
@@ -41,14 +41,8 @@ export default function StudentsPage() {
   };
 
   return (
-    <div className="mx-auto max-w-7xl space-y-8">
-      {/* Header */}
-      <div className="space-y-2">
-        <h1 className="text-3xl font-bold text-gray-900">Students</h1>
-        <p className="text-muted-foreground text-base">
-          Browse all registered student profiles.
-        </p>
-      </div>
+    <div className="w-full max-w-7xl space-y-8">
+      <PageHeader title="Students" description="Browse student profiles and academic information." />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         {students.map((student) => {
@@ -56,7 +50,7 @@ export default function StudentsPage() {
           return (
             <Card
               key={student?.id}
-              className="border border-slate-200/80 bg-white hover:shadow-lg transition-all duration-200 rounded-xl overflow-hidden group"
+              className="border-border bg-card transition-shadow hover:shadow-md"
             >
               <CardContent className="px-6 py-5">
                 <div className="space-y-4">
@@ -68,9 +62,9 @@ export default function StudentsPage() {
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-base font-bold text-gray-900 truncate group-hover:text-blue-600 transition-colors">
+                      <h2 className="truncate text-base font-semibold text-foreground">
                         {student?.name || "Unknown"}
-                      </h3>
+                      </h2>
                       {student?.email && (
                         <p className="text-xs text-slate-500 truncate">
                           {student.email}
@@ -80,13 +74,13 @@ export default function StudentsPage() {
                   </div>
 
                   {/* Details */}
-                  <div className="space-y-2.5 pt-2 border-t border-slate-100">
+                  <div className="space-y-3 border-t border-border pt-3">
                     {student?.college && (
                       <div>
-                        <Label className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+                        <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                           College
                         </Label>
-                        <p className="text-sm text-gray-700 mt-0.5">
+                        <p className="mt-0.5 text-sm text-foreground">
                           {student.college}
                         </p>
                       </div>
@@ -94,10 +88,10 @@ export default function StudentsPage() {
 
                     {student?.branch && (
                       <div>
-                        <Label className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+                        <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                           Branch
                         </Label>
-                        <p className="text-sm text-gray-700 mt-0.5">
+                        <p className="mt-0.5 text-sm text-foreground">
                           {student.branch}
                         </p>
                       </div>
@@ -105,7 +99,7 @@ export default function StudentsPage() {
 
                     {skills.length > 0 && (
                       <div>
-                        <Label className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1.5 block">
+                        <Label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-muted-foreground">
                           Skills
                         </Label>
                         <div className="flex flex-wrap gap-1.5">

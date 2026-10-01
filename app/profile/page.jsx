@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/supabaseClient";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import PageHeader from "@/components/PageHeader";
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState({});
@@ -60,25 +61,13 @@ export default function ProfilePage() {
       : [];
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-10">
-      <div className="mx-auto max-w-5xl space-y-8">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Your Profile</h1>
-            <p className="text-muted-foreground text-sm mt-1">
-              Manage your profile information and documents
-            </p>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleLogout}
-            className="text-slate-700 hover:text-slate-900"
-          >
-            Logout
-          </Button>
-        </div>
+    <div className="w-full px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+      <div className="mx-auto w-full max-w-5xl space-y-8">
+        <PageHeader
+          title="Profile"
+          description="Manage your profile information and documents."
+          actions={<Button variant="outline" size="sm" onClick={handleLogout}>Logout</Button>}
+        />
 
         {/* Content Grid */}
         <div className="grid gap-6 md:grid-cols-3">

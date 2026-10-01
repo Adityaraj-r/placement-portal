@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { useEffect, useState } from "react";
 import { getAllOpportunities } from "@/app/actions/opportunities.actions";
+import PageHeader from "@/components/PageHeader";
 
 export default function OpportunitiesPage() {
   const [opportunities, setOpportunities] = useState([]);
@@ -24,40 +25,34 @@ export default function OpportunitiesPage() {
   }, []);
 
   return (
-    <div className="mx-auto max-w-7xl space-y-8">
+    <div className="w-full max-w-7xl space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="space-y-2">
-          <h1 className="text-3xl font-bold text-gray-900">
-            Opportunities
-          </h1>
-          <p className="text-muted-foreground text-base">
-            Manage and review all posted opportunities.
-          </p>
-        </div>
+      <PageHeader
+        title="Placement Drives"
+        description="Create and manage placement opportunities."
+        actions={
         <Link href="/admin/opportunities/new">
-          <Button className="bg-blue-600 hover:bg-blue-700 text-white font-medium">
-            + New Opportunity
-          </Button>
+          <Button className="font-medium">+ Create Drive</Button>
         </Link>
-      </div>
+        }
+      />
 
       {/* List */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {opportunities.map((opp) => (
           <Card
             key={opp.id}
-            className="border border-slate-200/80 bg-white hover:shadow-lg transition-all duration-200 rounded-xl overflow-hidden group"
+          className="border-border bg-card transition-shadow hover:shadow-md"
           >
             <CardContent className="px-6 py-5">
               <div className="space-y-4">
                 {/* Header */}
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-lg font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
+                    <h2 className="text-lg font-semibold tracking-tight text-foreground">
                       {opp?.role}
-                    </h3>
-                    <p className="text-sm font-medium text-blue-600 mt-1">
+                    </h2>
+                    <p className="mt-1 text-sm font-medium text-primary">
                       {opp?.company_name}
                     </p>
                   </div>
@@ -75,18 +70,18 @@ export default function OpportunitiesPage() {
 
                 {/* Description */}
                 {opp?.description && (
-                  <p className="text-sm text-gray-600 line-clamp-2 leading-relaxed">
+                  <p className="line-clamp-2 text-sm leading-relaxed text-muted-foreground">
                     {opp.description}
                   </p>
                 )}
 
                 {/* Details Grid */}
-                <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-100">
+                <div className="grid grid-cols-1 gap-3 border-t border-border pt-3 sm:grid-cols-2">
                   <div>
-                    <Label className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+                    <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                       Eligibility
                     </Label>
-                    <p className="text-sm text-gray-700 mt-1 line-clamp-1">
+                    <p className="mt-1 line-clamp-1 text-sm text-foreground">
                       {Array.isArray(opp?.allowed_departments) && opp.allowed_departments.length
                         ? opp.allowed_departments.join(", ")
                         : "Departments not specified"}
@@ -95,10 +90,10 @@ export default function OpportunitiesPage() {
                     </p>
                   </div>
                   <div>
-                    <Label className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+                    <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                       Deadline
                     </Label>
-                    <p className="text-sm text-gray-700 mt-1">
+                    <p className="mt-1 text-sm text-foreground">
                       {opp?.deadline
                         ? new Date(opp.deadline)
                             .toLocaleDateString("en-US", {

@@ -11,6 +11,7 @@ import { createOpportunity } from "@/app/actions/opportunities.actions";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { getCompanies } from "@/app/actions/company.actions";
+import PageHeader from "@/components/PageHeader";
 import {
   Select,
   SelectContent,
@@ -68,12 +69,13 @@ export default function NewOpportunity() {
   };
 
   return (
-    <div className="max-w-xl mx-auto">
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">
-        Create Opportunity
-      </h1>
+    <div className="mx-auto w-full max-w-3xl space-y-8">
+      <PageHeader
+        title="Create Placement Drive"
+        description="Configure the company, eligibility criteria, and application deadline."
+      />
 
-      <Card className="shadow-sm">
+      <Card className="border-border bg-card shadow-sm">
         <CardContent className="p-6 space-y-4">
           <form className="space-y-4" onSubmit={handleCreate}>
 
@@ -155,7 +157,7 @@ export default function NewOpportunity() {
           </div>
 
           <Button type="submit"
-            className="bg-blue-600 text-white w-full"
+            className="w-full sm:w-auto"
             disabled={companies.length === 0 || saving}
           >
             {saving ? "Saving…" : "Save as draft"}

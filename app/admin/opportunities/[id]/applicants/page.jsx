@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import PageHeader from "@/components/PageHeader";
 import { useEffect, useMemo, useState } from "react";
 import { getApplicantsByDrive, updateApplicationStatus } from "@/app/actions/applications.actions";
 import { applicationTransitions, PHASE_3C_APPLICATION_STATUSES } from "@/lib/applications/application-rules.mjs";
@@ -294,24 +295,24 @@ export default function ApplicantsPage() {
     : null;
 
   return (
-    <div className="mx-auto max-w-7xl space-y-8">
+    <div className="w-full max-w-7xl space-y-8">
       {/* Opportunity Header */}
       {opportunity && (
-        <Card className="border border-slate-200/80 bg-white rounded-xl overflow-hidden">
+        <Card className="border-border bg-card">
           <CardContent className="px-6 py-5">
             <div className="space-y-4">
               <div>
-                <h2 className="text-xl font-bold text-gray-900 mb-1">
+                <h2 className="text-xl font-semibold tracking-tight text-foreground">
                   {opportunity.role}
                 </h2>
-                <p className="text-sm font-medium text-blue-600">
+                <p className="text-sm font-medium text-primary">
                   {opportunity.company_name}
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-slate-100">
+              <div className="grid grid-cols-1 gap-4 border-t border-border pt-4 sm:grid-cols-2">
                 <div>
-                  <Label className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+                  <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     Status
                   </Label>
                   <div className="mt-1.5">
@@ -328,10 +329,10 @@ export default function ApplicantsPage() {
                 </div>
 
                 <div>
-                  <Label className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+                  <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     Deadline
                   </Label>
-                  <p className="text-sm text-gray-700 mt-1.5">
+                  <p className="mt-1.5 text-sm text-foreground">
                     {opportunity.deadline
                       ? new Date(opportunity.deadline).toLocaleDateString(
                           "en-US",
@@ -351,13 +352,17 @@ export default function ApplicantsPage() {
       )}
 
       {/* Applicants Section */}
-      <div className="space-y-6">
-        <div className="space-y-2">
-          <h1 className="text-3xl font-bold text-gray-900">Applicants</h1>
-          <p className="text-muted-foreground text-base">
-            Review and manage applications for this opportunity.
-          </p>
-        </div>
+      <section className="space-y-6">
+        <PageHeader
+          title="Applicants"
+          description="Review and manage applications for this placement drive."
+          actions={
+            <Button variant="outline" className="font-medium" onClick={downloadFilteredApplicants} disabled={filteredApplicants.length === 0}>
+              Download CSV
+            </Button>
+          }
+          className="border-0 pb-0"
+        />
 
         <div className="flex flex-col gap-3 sm:flex-row">
           <Input
@@ -382,10 +387,10 @@ export default function ApplicantsPage() {
           </Select>
         </div>
 
-        <div className="border border-slate-200/80 rounded-xl overflow-hidden bg-white">
+        <div className="overflow-hidden rounded-xl border border-border bg-card">
           <Table>
             <TableHeader>
-              <TableRow className="bg-slate-50/50">
+              <TableRow className="bg-muted/50">
                 <TableHead className="font-semibold">Name</TableHead>
                 <TableHead className="font-semibold">Email</TableHead>
                 <TableHead className="font-semibold">College</TableHead>
@@ -494,12 +499,7 @@ export default function ApplicantsPage() {
         </Table>
         </div>
 
-        <div className="flex justify-end">
-          <Button variant="outline" className="font-medium" onClick={downloadFilteredApplicants} disabled={filteredApplicants.length === 0}>
-            Download CSV
-          </Button>
-        </div>
-      </div>
+      </section>
 
       <Dialog open={Boolean(selectedApplicant)} onOpenChange={(open) => { if (!open) setSelectedApplicant(null); }}>
         <DialogContent className="max-h-[85vh] overflow-y-auto">
@@ -522,12 +522,12 @@ export default function ApplicantsPage() {
                 ].map(([label, value]) => (
                   <div key={label}>
                     <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</dt>
-                    <dd className="mt-1 text-gray-900">{value ?? "-"}</dd>
+                    <dd className="mt-1 text-foreground">{value ?? "-"}</dd>
                   </div>
                 ))}
                 <div className="sm:col-span-2">
                   <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">Skills</dt>
-                  <dd className="mt-1 text-gray-900">
+                  <dd className="mt-1 text-foreground">
                     {Array.isArray(selectedApplicant.student_profiles?.skills)
                       ? selectedApplicant.student_profiles.skills.join(", ") || "-"
                       : selectedApplicant.student_profiles?.skills || "-"}

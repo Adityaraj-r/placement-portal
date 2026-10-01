@@ -12,7 +12,7 @@ export default function StudentNavbar() {
   const [initial, setInitial] = useState("U");
 
   const isActive = (href) =>
-    pathname === href || (href !== "/" && pathname.startsWith(href));
+    pathname === href || (href !== "/" && pathname.startsWith(`${href}/`));
 
   useEffect(() => {
     async function loadUser() {
@@ -32,41 +32,41 @@ export default function StudentNavbar() {
   }, []);
 
   return (
-    <header className="sticky top-0 z-40 border-b bg-white/80 backdrop-blur supports-backdrop-filter:bg-white/70 shadow-sm">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
-        <Link href="/opportunities" className="flex items-center gap-2">
-          <span className="text-base font-semibold text-blue-600">
+    <header className="sticky top-0 z-40 border-b border-border bg-background/90 shadow-sm backdrop-blur supports-backdrop-filter:bg-background/80">
+      <div className="mx-auto grid min-h-16 w-full max-w-7xl grid-cols-[1fr_auto] items-center gap-x-3 gap-y-2 px-4 py-2 sm:flex sm:justify-between sm:gap-6 sm:px-6 sm:py-0 lg:px-8">
+        <Link href="/opportunities" className="flex min-w-0 items-center gap-2 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+          <span className="truncate text-sm font-semibold tracking-tight text-primary sm:text-base">
             Placement Portal
           </span>
         </Link>
 
-        <nav className="flex items-center gap-1 text-sm">
+        <nav className="col-span-2 grid grid-cols-2 gap-1 sm:order-2 sm:flex sm:items-center sm:justify-center" aria-label="Student navigation">
           <Button
             asChild
             variant={isActive("/opportunities") ? "default" : "ghost"}
-            size="sm"
-            className={isActive("/opportunities") ? "" : "text-slate-600"}
+            size="default"
+            className={isActive("/opportunities") ? "" : "text-muted-foreground"}
           >
-            <Link href="/opportunities">Opportunities</Link>
+            <Link href="/opportunities" aria-current={isActive("/opportunities") ? "page" : undefined}>Opportunities</Link>
           </Button>
 
           <Button
             asChild
             variant={isActive("/applications") ? "default" : "ghost"}
-            size="sm"
-            className={isActive("/applications") ? "" : "text-slate-600"}
+            size="default"
+            className={isActive("/applications") ? "" : "text-muted-foreground"}
           >
-            <Link href="/applications">My Applications</Link>
+            <Link href="/applications" aria-current={isActive("/applications") ? "page" : undefined}>My Applications</Link>
           </Button>
         </nav>
 
         <Link
           href="/profile"
-          className="group flex items-center rounded-full focus-visible:outline-none focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+          className="group flex size-10 items-center justify-center justify-self-end rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:order-3"
           aria-label="Go to profile"
         >
-          <Avatar className="h-9 w-9 border border-slate-200 shadow-sm group-hover:shadow-md transition-shadow">
-            <AvatarFallback className="bg-blue-600 text-white text-sm font-semibold">
+          <Avatar className="size-9 border border-border shadow-sm transition-shadow group-hover:shadow-md">
+              <AvatarFallback className="bg-primary text-sm font-semibold text-primary-foreground">
               {initial}
             </AvatarFallback>
           </Avatar>
